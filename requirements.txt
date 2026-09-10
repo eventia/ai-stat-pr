@@ -1,0 +1,11 @@
+anthropic
+python-dotenv
+pandas
+openpyxl
+pdfplumber
+requests
+scikit-learn
+kiwipiepy
+networkx
+matplotlib
+pytest
