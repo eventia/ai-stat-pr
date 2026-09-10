@@ -8,3 +8,4 @@ images/*.png
 .pytest_cache/
 data/raw/*.xlsx
 data/raw/*.pdf
+result-ant/
