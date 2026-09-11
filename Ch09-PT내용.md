@@ -167,24 +167,42 @@ result = cross_check_all_numbers(unified_text, data)
 
 ```python
 def review_press_release(final_text: str, data: dict) -> list:
+    # 감수자가 "역대 최대"·"몇 개월 연속 증가" 같은 표현을 근거 없는 과장으로
+    # 오판하지 않도록, 계산지표뿐 아니라 통계해석결과·품목별지표 등 관련 근거
+    # 자료를 전부 함께 제공한다.
+    근거자료 = {
+        k: data[k]
+        for k in ("계산지표", "통계해석결과", "품목별지표", "역대최대여부", "최근3개월증감률")
+        if k in data
+    }
     prompt = f"""당신은 통계 보도자료 전문 감수자입니다. 아래 원본 데이터와 완성된
 보도자료를 대조하여 수치 오류, 과장된 표현, 문체 불일치, 논리적 비약을 지적해 주세요.
+지적사항은 최대 5건까지, 항목당 한 문장으로 간결하게 작성하십시오.
 
-원본 데이터: {json.dumps(data.get('계산지표', data.get('품목별지표', {})), ensure_ascii=False)}
+원본 데이터: {json.dumps(근거자료, ensure_ascii=False)}
 완성된 보도자료: {final_text}
 
 JSON 배열 형식으로만 답하십시오. 예: [{{"유형": "...", "위치": "...", "지적사항": "..."}}]"""
 
     message = client.messages.create(
-        model=MODEL_NAME, max_tokens=800,  # MODEL_NAME, parse_json_response 모두 4차시에서 정의한 것을 재사용
+        model=MODEL_NAME, max_tokens=1500,  # MODEL_NAME, parse_json_response 모두 4차시에서 정의한 것을 재사용
         messages=[{"role": "user", "content": prompt}]
     )
-    return parse_json_response(message.content[0].text)
+    try:
+        return parse_json_response(message.content[0].text)
+    except (ValueError, json.JSONDecodeError):
+        return [{
+            "유형": "감수 응답 파싱 실패",
+            "위치": "-",
+            "지적사항": "AI 감수 응답이 잘리거나 JSON 형식이 아니어서 자동으로 해석하지 못했습니다.",
+        }]
 
 review_result = review_press_release(unified_text, data)
 ```
 
 작성 단계와 마찬가지로 감수 단계도 함수로 만들어, 최종본과 원본 데이터를 입력하면 지적사항 목록을 자동으로 받아볼 수 있도록 구현합니다.
+
+> **[수정, 7차 세션] 근거자료 누락 + 응답 절단 시 파이프라인 전체 크래시 수정 (실제 실행으로 발견)**: 기존 코드는 두 가지 문제가 실제 실행 중 드러났습니다. ① 원본 데이터를 `계산지표` 또는 `품목별지표` 중 하나만 골라 감수자에게 전달해, 품목별지표가 있어도 감수자가 보지 못하는 경우가 있었습니다 → 관련 근거자료를 전부 함께 전달하도록 수정했습니다. ② 실제로 새 시나리오(반려동물용품 실습)를 끝까지 돌려보니, 지적사항이 많아진 응답이 `max_tokens=800` 한도에 걸려 JSON 배열이 닫는 대괄호 없이 잘렸고, `parse_json_response`가 이를 찾지 못해 `ValueError`를 던지며 **파이프라인 전체가 멈췄습니다.** `max_tokens`를 1500으로 늘리고 프롬프트에 "최대 5건, 항목당 한 문장" 분량 제약을 추가했으며, 그래도 파싱에 실패하면 예외 대신 안내 항목 하나를 반환하도록 `try/except`를 추가했습니다 — AI 감수는 9차시 3단계 안전장치 중 하나일 뿐이므로, 이 단계가 실패해도 이미 끝난 표기·수치 검증 결과는 그대로 보여줄 수 있어야 합니다.
 
 ---
 

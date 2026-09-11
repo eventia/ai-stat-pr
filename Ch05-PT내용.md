@@ -248,6 +248,29 @@ def check_percent_unit(text: str, is_rate_of_rate: bool) -> bool:
 > **[수정, 7차 세션] 감소·연속추세 해석문장 누락 결함 수정 (REVIEW_Ch02-10.md A-2)**: 실제로 코드를 돌려본 결과(가격정보 API 응용, 6차 세션), `detect_special_points`가 "전월/전년동월 대비 큰 폭 **감소**"와 "최근 3개월 연속 **감소**세"까지 감지할 수 있는데도, 아래 예전 버전의 `add_calculated_indicators`는 "역대 최대치 경신"과 "큰 폭 증가" 두 가지만 해석문장으로 연결하고 있었습니다. 그 결과 하락하는 통계에서는 `특이점목록`에는 표시되지만 `해석문장`은 조용히 비어 있는 결함이 있었습니다. 아래 코드는 6가지 특이점 유형(증가/감소 × 전월/전년동월, 연속 증가세/감소세, 역대 최대치)을 모두 해석문장으로 연결하도록 수정된 최신 버전입니다.
 
 ```python
+def build_interpretation_sentences(특이점: list, 계산지표: dict, 지표명: str = "거래액") -> list:
+    """특이점목록과 계산지표로부터 해석문장 목록을 만든다."""
+    해석문장 = []
+    if "역대 최대치 경신" in 특이점:
+        해석문장.append(generate_interpretation(지표명, 계산지표["총거래액"], "억 원", "역대 최대치 경신"))
+    # 증가/감소, 전월/전년동월을 각각 구분해 값을 매핑한다. 감소 방향은 abs()로
+    # 부호를 뗀 값을 "감소" 전용 템플릿에 채운다 — 부호를 그대로 두면
+    # "거래액이 -6% 감소하며..."처럼 이중 부정이 되어 버린다.
+    if "전월 대비 큰 폭 증가" in 특이점:
+        해석문장.append(generate_interpretation("거래액", 계산지표["전월대비증감률"], "%", "전월 대비 큰 폭 증가"))
+    if "전월 대비 큰 폭 감소" in 특이점:
+        해석문장.append(generate_interpretation("거래액", abs(계산지표["전월대비증감률"]), "%", "전월 대비 큰 폭 감소"))
+    if "전년동월 대비 큰 폭 증가" in 특이점:
+        해석문장.append(generate_interpretation("거래액", 계산지표["전년동월대비증감률"], "%", "전년동월 대비 큰 폭 증가"))
+    if "전년동월 대비 큰 폭 감소" in 특이점:
+        해석문장.append(generate_interpretation("거래액", abs(계산지표["전년동월대비증감률"]), "%", "전년동월 대비 큰 폭 감소"))
+    if "최근 3개월 연속 증가세" in 특이점:
+        해석문장.append(generate_interpretation("거래액", 0, "%", "최근 3개월 연속 증가세"))
+    if "최근 3개월 연속 감소세" in 특이점:
+        해석문장.append(generate_interpretation("거래액", 0, "%", "최근 3개월 연속 감소세"))
+    return 해석문장
+
+
 def add_calculated_indicators(data: dict) -> dict:
     """표준 데이터의 원본 수치를 바탕으로 계산지표, 통계해석결과 필드를 채운다."""
     지표 = data["계산지표"]
@@ -265,24 +288,7 @@ def add_calculated_indicators(data: dict) -> dict:
     )
 
     지표명 = data["문서정보"]["제목"].split()[-1] or "거래액"
-    해석문장 = []
-    if "역대 최대치 경신" in 특이점:
-        해석문장.append(generate_interpretation(지표명, 지표["총거래액"], "억 원", "역대 최대치 경신"))
-    # 증가/감소, 전월/전년동월을 각각 구분해 값을 매핑한다. 감소 방향은 abs()로
-    # 부호를 뗀 값을 "감소" 전용 템플릿에 채운다 — 부호를 그대로 두면
-    # "거래액이 -6% 감소하며..."처럼 이중 부정이 되어 버린다.
-    if "전월 대비 큰 폭 증가" in 특이점:
-        해석문장.append(generate_interpretation("거래액", 지표["전월대비증감률"], "%", "전월 대비 큰 폭 증가"))
-    if "전월 대비 큰 폭 감소" in 특이점:
-        해석문장.append(generate_interpretation("거래액", abs(지표["전월대비증감률"]), "%", "전월 대비 큰 폭 감소"))
-    if "전년동월 대비 큰 폭 증가" in 특이점:
-        해석문장.append(generate_interpretation("거래액", 지표["전년동월대비증감률"], "%", "전년동월 대비 큰 폭 증가"))
-    if "전년동월 대비 큰 폭 감소" in 특이점:
-        해석문장.append(generate_interpretation("거래액", abs(지표["전년동월대비증감률"]), "%", "전년동월 대비 큰 폭 감소"))
-    if "최근 3개월 연속 증가세" in 특이점:
-        해석문장.append(generate_interpretation("거래액", 0, "%", "최근 3개월 연속 증가세"))
-    if "최근 3개월 연속 감소세" in 특이점:
-        해석문장.append(generate_interpretation("거래액", 0, "%", "최근 3개월 연속 감소세"))
+    해석문장 = build_interpretation_sentences(특이점, 지표, 지표명)
 
     data["통계해석결과"] = {"특이점목록": 특이점, "해석문장": 해석문장}
     return data
@@ -290,21 +296,38 @@ def add_calculated_indicators(data: dict) -> dict:
 
 `add_calculated_indicators`는 이번 차시에서 만든 `detect_special_points`, `generate_interpretation`을 순서대로 호출하여 표준 데이터의 `통계해석결과` 필드를 채웁니다. `generate_interpretation`의 템플릿 딕셔너리에도 "전월/전년동월 대비 큰 폭 감소"와 "최근 3개월 연속 증가세/감소세" 항목이 함께 추가되었습니다([modules/stats.py](modules/stats.py) 참고).
 
+> **[수정, 8차 세션] "특이점 → 해석문장" 변환 로직을 별도 함수로 분리**: 6가지 분기(증가/감소 × 전월/전년동월, 연속 증가세/감소세, 역대 최대치)를 `add_calculated_indicators` 안에 그대로 두면, 8차 세션에서 새로 만든 응용 시나리오(원자료부터 시작하는 반려동물용품 실습, 페이지 13-3 참고)가 이 로직을 다시 복사해서 써야 합니다. 같은 로직이 두 곳에 복사되면 한쪽만 고치고 다른 쪽을 놓치는 사고가 나기 쉬우므로, `build_interpretation_sentences`라는 별도 함수로 뽑아내 두 시나리오가 함께 호출하도록 했습니다. 동작 결과는 이전과 동일합니다.
+
 ---
 
 ### [추가] 페이지 13-2. Python 코드, 역대 최대·최근 추세 자동 계산 (derive_history_indicators)
 
 > **[수정, 7차 세션] "역대 최대" 판별이 실제로는 자동화되지 않던 문제 수정 (REVIEW_Ch02-10.md A-1)**: 페이지 6에서 `history_df`와 비교해 `is_record_high`를 계산하는 코드를 보여줬지만, 실제로 그 코드를 호출하는 함수가 프로젝트 어디에도 없어 담당자가 과거 자료를 직접 조사해서 `역대최대여부`/`최근3개월증감률` 값을 수작업으로 입력해야 했습니다. 이제 `derive_history_indicators`가 과거 월별 이력을 실제로 비교해 이 두 값을 자동 계산하며, `modules/io.py`의 `load_input`이 xlsx의 "이력" 시트를 읽어 이 함수를 자동으로 호출합니다(7차시 페이지 3-1 참고).
+>
+> **[수정, 8차 세션] 전월대비/전년동월대비증감률까지 이력만으로 계산하도록 확장**: 7차 세션 버전은 역대최대·최근3개월만 자동 계산했고, 페이지 2(`pct_change`)의 전월대비/전년동월대비증감률은 여전히 담당자가 미리 계산해서 넣어야 했습니다. 사용자가 "실습을 처음부터 시작한다면 왜 이미 계산된 값에서 시작하는가"를 지적한 것을 계기로([PLAN_raw_data_redesign.md](PLAN_raw_data_redesign.md) 참고), 같은 `history`만으로 이 두 증감률까지 계산하도록 확장했습니다. 전월/전년동월에 해당하는 값이 `history`에 없으면 0이나 임의값으로 조용히 채우지 않고 `None`을 반환합니다 — 계산할 수 없다는 사실을 호출부가 명시적으로 알 수 있게 하기 위함입니다.
 
 ```python
+def _shift_month(ym: str, delta_months: int) -> str:
+    """"YYYY-MM" 문자열을 delta_months만큼 이동시킨다 (음수면 과거로)."""
+    year, month = (int(part) for part in ym.split("-"))
+    total = year * 12 + (month - 1) + delta_months
+    new_year, new_month0 = divmod(total, 12)
+    return f"{new_year:04d}-{new_month0 + 1:02d}"
+
+
 def derive_history_indicators(history: list, current_ym: str, current_value: float) -> dict:
-    """과거 월별 시계열과 이번 달 값을 비교해 역대최대여부·최근3개월증감률을 자동 계산한다.
+    """과거 월별 시계열과 이번 달 값만으로 4가지 지표를 전부 자동 계산한다:
+    전월대비증감률, 전년동월대비증감률, 역대최대여부, 최근3개월증감률.
 
     history: [{"연월": "YYYY-MM", "값": 숫자}, ...] 순서 무관, 이번 달 제외.
+    전월/전년동월 값이 history에 없으면 그 증감률은 None으로 반환한다.
     과거 이력이 아예 없으면 역대최대여부는 True로 간주한다(비교 대상이 없으므로).
     """
     if not history:
-        return {"역대최대여부": True, "최근3개월증감률": []}
+        return {
+            "역대최대여부": True, "최근3개월증감률": [],
+            "전월대비증감률": None, "전년동월대비증감률": None,
+        }
 
     현재_월 = current_ym.split("-")[1]
     같은달_과거값 = [h["값"] for h in history if h["연월"].split("-")[1] == 현재_월]
@@ -317,10 +340,61 @@ def derive_history_indicators(history: list, current_ym: str, current_value: flo
         if 이전값:
             최근3개월증감률.append(round((이번값 - 이전값) / 이전값 * 100, 1))
 
-    return {"역대최대여부": 역대최대여부, "최근3개월증감률": 최근3개월증감률}
+    history_map = {h["연월"]: h["값"] for h in history}
+
+    def _rate_vs(ym: str):
+        기준값 = history_map.get(ym)
+        return round((current_value - 기준값) / 기준값 * 100, 1) if 기준값 else None
+
+    return {
+        "역대최대여부": 역대최대여부,
+        "최근3개월증감률": 최근3개월증감률,
+        "전월대비증감률": _rate_vs(_shift_month(current_ym, -1)),
+        "전년동월대비증감률": _rate_vs(_shift_month(current_ym, -12)),
+    }
 ```
 
-같은 달(예: 1월)의 과거 값들만 골라 최댓값과 비교하는 방식은 페이지 6의 원래 취지("역대 1월 기준 최대치")를 그대로 따릅니다. 같은 달 이력이 없으면(예: 신설 통계) 비교 대상이 없으므로 최댓값으로 간주합니다.
+같은 달(예: 1월)의 과거 값들만 골라 최댓값과 비교하는 방식은 페이지 6의 원래 취지("역대 1월 기준 최대치")를 그대로 따릅니다. 같은 달 이력이 없으면(예: 신설 통계) 비교 대상이 없으므로 최댓값으로 간주합니다. 전월/전년동월대비증감률은 `_shift_month`로 비교 대상 연월을 계산한 뒤, `history`에서 그 값을 찾아 `pct_change`와 동일한 공식(페이지 2)으로 계산합니다.
+
+---
+
+### [추가] 페이지 13-3. Python 코드, 원자료가 "집계 전 개별 기록"일 때 (aggregate_sample_sales)
+
+> **[수정, 8차 세션] "실습을 처음부터 시작한다면 왜 이미 계산된 값에서 시작하는가"라는 지적에 대한 대응**: 지금까지 이 차시의 모든 예시(`category_df`, `add_calculated_indicators`)는 "총거래액"과 "품목별 당월거래액"이 이미 표에 정리되어 있다고 가정했습니다. 그런데 실제 통계 생산 과정에서는 그 표 자체가 처음부터 존재하지 않습니다 — 통계청의 온라인쇼핑 동향도 개별 소비자 거래를 전수조사하는 게 아니라, **표본 사업체들이 신고한 매출을 취합**해서 만듭니다. "표본 사업체별 매출 신고"(집계 전 원자료)만 있을 때, 품목별 합계·비중·순위를 직접 계산하는 코드가 필요합니다(자세한 설계 배경은 [PLAN_raw_data_redesign.md](PLAN_raw_data_redesign.md) 참고).
+
+```python
+from collections import defaultdict
+
+def aggregate_sample_sales(표본매출: list) -> list:
+    """표본 사업체별 매출 신고를 품목별로 합산해 당월거래액·비중·순위를 계산한다.
+
+    표본매출: [{"업체명": str, "품목": str, "매출액": 숫자}, ...] — 합계·비중·순위는
+    이 함수를 거치기 전까지 어디에도 존재하지 않는다.
+    """
+    품목별합계 = defaultdict(float)
+    for row in 표본매출:
+        품목별합계[row["품목"]] += row["매출액"]
+
+    총매출 = sum(품목별합계.values())
+    품목별지표 = [
+        {"품목": 품목, "당월거래액": int(round(값)), "비중": round(값 / 총매출 * 100, 1)}
+        for 품목, 값 in 품목별합계.items()
+    ]
+    품목별지표.sort(key=lambda row: row["당월거래액"], reverse=True)
+    for 순위, row in enumerate(품목별지표, start=1):
+        row["순위"] = 순위
+    return 품목별지표
+
+표본매출 = [
+    {"업체명": "펫프렌즈샵", "품목": "사료", "매출액": 4200},
+    {"업체명": "우리동물마트", "품목": "사료", "매출액": 3800},
+    {"업체명": "도그캣플러스", "품목": "간식", "매출액": 3000},
+    # ... (총 23개 업체)
+]
+품목별지표 = aggregate_sample_sales(표본매출)
+```
+
+`category_df`(페이지 4)가 이미 "당월거래액" 컬럼을 갖고 시작했다면, `aggregate_sample_sales`는 그 컬럼 자체를 개별 신고 건들을 `품목`별로 더해서 만들어냅니다. 이렇게 계산된 `품목별지표`와 `derive_history_indicators`(페이지 13-2)의 결과를 합치면, "표본매출"과 "이력"이라는 두 가지 원자료만으로 `add_calculated_indicators`가 하던 일을 전부 대체할 수 있습니다 — 실제 구현은 [modules/pet_stats.py](modules/pet_stats.py)의 `build_indicators` 함수를 참고하십시오(10차시 페이지 3의 "세 가지 예시 비교" 표에서 전체 흐름을 다시 정리합니다).
 
 ---
 

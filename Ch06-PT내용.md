@@ -125,7 +125,7 @@ matplotlib 라이브러리로 몇 줄의 코드만으로 그래프를 그릴 수
 그래프 유형별 설명문 생성 함수
 
 ```python
-def generate_chart_description(chart_type: str, data: pd.DataFrame) -> str:
+def generate_chart_description(chart_type: str, data: pd.DataFrame, label: str = None) -> str:
     if chart_type == "bar":
         sorted_df = data.sort_values("당월거래액", ascending=False)
         top, second, last = sorted_df.iloc[0], sorted_df.iloc[1], sorted_df.iloc[-1]
@@ -142,13 +142,16 @@ def generate_chart_description(chart_type: str, data: pd.DataFrame) -> str:
         sorted_df = data.sort_values("연월")
         시작, 종료 = sorted_df.iloc[0], sorted_df.iloc[-1]
         추세방향 = "증가" if 종료["거래액"] > 시작["거래액"] else "감소"
-        return (f"{시작['연월']}부터 {종료['연월']}까지 {추세방향}세를 보이고 있으며, "
+        주어 = label or "총거래액"
+        return (f"{주어}은 {시작['연월']}부터 {종료['연월']}까지 {추세방향}세를 보이고 있으며, "
                 f"{종료['연월']}에 {종료['거래액']:,}억 원을 기록하였다.")
 ```
 
 그래프 유형과 데이터프레임을 입력하면, 해당 유형에 맞는 템플릿에 자동으로 값을 채워 넣어 설명문을 생성하는 함수입니다. 이 함수 하나로 어떤 통계표가 들어와도 일관된 형식의 그래프 설명문을 즉시 만들어낼 수 있습니다.
 
 > **[수정] line(꺾은선그래프) 분기 추가**: 이 차시 초반(페이지 2, 5)에서 3대 그래프 유형 중 하나로 꺾은선그래프의 추세 설명 템플릿을 소개했지만, 기존 `generate_chart_description` 함수에는 `bar`/`pie` 분기만 있고 `line` 분기가 빠져 있었습니다. 월별 시계열 데이터프레임(`연월`, `거래액` 컬럼)을 받아 추세 방향을 판단하는 분기를 추가했습니다.
+>
+> **[수정, 7차 세션] line 문장에 주어가 없어 LLM이 엉뚱한 주제를 지어내던 문제 수정 (실제 실행으로 발견)**: 7차 세션에서 이 `line` 분기를 처음으로 실전에 투입해보니(그전까지는 아무도 호출하지 않는 "고아 기능"이었습니다), 이 문장에 주어(무엇이 증가/감소했는지)가 없어서 "2024-03부터 2026-03까지 증가세를 보이고 있으며..."처럼 애매하게 나왔습니다. 8차시의 `expand_to_paragraph`가 이 문장만 보고 본문 단락으로 확장할 때, 실제로 LLM이 "디지털 콘텐츠 시장 규모는 지속적인 증가세를 나타내고 있다"처럼 **원본에 전혀 없는 엉뚱한 주제를 지어내는 환각**을 일으켰습니다. `verify_numbers`는 숫자만 대조하므로 주제 자체가 틀린 이 환각을 잡아내지 못했습니다. `label` 인자를 추가해 문장이 항상 지표명으로 시작하도록 고쳤습니다(생략하면 `modules/config.PRIMARY_INDICATOR`인 "총거래액"을 기본값으로 사용). 이 사례는 "코드가 있어도 실제로 실행해보지 않으면 드러나지 않는 결함이 있다"는 것을 다시 한번 보여줍니다.
 
 ---
 
@@ -241,6 +244,7 @@ def generate_table_description(data: pd.DataFrame) -> str:
 import os
 import matplotlib.pyplot as plt
 import pandas as pd
+from modules.config import PRIMARY_INDICATOR
 
 def build_visual_descriptions(data: dict) -> list:
     """품목별지표로 막대·원형 그래프를, 월별이력으로 꺾은선 그래프를 생성해 시각자료설명 목록을 반환한다."""
@@ -271,7 +275,7 @@ def build_visual_descriptions(data: dict) -> list:
         plt.savefig(추이_이미지경로, dpi=150, bbox_inches="tight")
         plt.close(fig2)
         결과.append({"소주제": "시계열 동향", "그래프유형": "꺾은선그래프", "이미지경로": 추이_이미지경로,
-                    "설명문": generate_chart_description("line", 이력_df)})
+                    "설명문": generate_chart_description("line", 이력_df, label=PRIMARY_INDICATOR)})
 
     return 결과
 

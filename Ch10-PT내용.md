@@ -44,8 +44,9 @@
 | NLP 분석 | `analyze_document(text, data)` | 3차시 |
 | 요약 생성 | `generate_summary(data)` | 4차시 |
 | 통계 해석·계산 통합 | `add_calculated_indicators(data)` (내부에서 `detect_special_points`, `generate_interpretation` 호출) | 5차시 |
-| 역대최대·추세 자동 계산 | `derive_history_indicators(history, current_ym, current_value)` — xlsx "이력" 시트가 있을 때 `load_input`이 자동 호출 | 5·7차시 |
+| 역대최대·추세 자동 계산 | `derive_history_indicators(history, current_ym, current_value)` — 역대최대여부·최근3개월증감률뿐 아니라 전월대비/전년동월대비증감률까지 이력만으로 계산 (8차 세션 확장). xlsx "이력" 시트가 있을 때 `load_input`이 자동 호출 | 5·7차시 |
 | 참고용 요약 (선택) | `generate_summary(data)` — 사실 확정에는 쓰이지 않으며, `제목후보`만 헤드라인 프롬프트에 참고용으로 전달됨 | 4차시 |
+| 원자료 집계 (진짜 원자료 시나리오 전용) | `aggregate_sample_sales(표본매출)`, `build_indicators(표본매출, 이력, current_ym)` — 이미 계산된 표가 아니라 집계 전 개별 신고 데이터에서 시작할 때 사용 | 5차시(8차 세션 응용) |
 | 그래프·설명 통합 | `build_visual_descriptions(data)` (내부에서 `generate_chart_description` 호출) | 6차시 |
 | 헤드라인 생성 | `generate_headline_set(data)` (내부에서 `build_headline_prompt` 호출) | 7차시 |
 | 본문 생성 통합 | `generate_body_paragraphs(data)` (내부에서 `expand_to_paragraph` 반복 호출) | 8차시 |
@@ -196,6 +197,16 @@ def save_final_document(data: dict):
 - 웹 인터페이스 연동: 담당자가 파일을 업로드하면 결과를 웹 화면에서 확인하는 형태로 발전
 
 지금까지 만든 시스템은 하나의 통계표를 기준으로 설계되었지만, 표준 데이터 구조(JSON)를 그대로 유지한다면 다른 통계 항목이나 여러 파일을 한 번에 처리하는 형태로도 얼마든지 확장할 수 있습니다.
+
+> **[수정, 8차 세션] "다른 통계표 적용"이 실제로 두 가지 다른 방식으로 실증됨**: 이 프로젝트에는 지금 진입점이 세 개 있습니다. 서로 다른 것은 통계 항목이 아니라, **원자료가 어디까지 가공되어 있는가**입니다.
+>
+> | 진입점 | 원자료 상태 | "계산" 단계가 하는 일 | 재사용 여부 |
+> | --- | --- | --- | --- |
+> | `main.py` | 이미 계산된 표 (온라인쇼핑 동향) | 특이점 판별·해석문장 생성만 | — |
+> | `main_price.py` | 진짜 원자료 (공공데이터포털 개별 상품 가격) | 평균가격·증감률 계산부터 전부 | 그래프·헤드라인·본문·검수 재사용, 계산 로직만 새로 작성(`price_stats.py`) |
+> | `main_practice.py` | 합성 원자료 (표본 사업체 매출 신고) | 품목별 집계·증감률 계산부터 전부 | 위와 동일한 원칙, 계산 로직만 새로 작성(`pet_stats.py`) |
+>
+> 세 예시 모두 `modules/review.py`(검증·문체통일·AI감수) 전체와 `modules/write.py`의 본문 확장 함수(`expand_to_paragraph`, `generate_body_paragraphs`)를 수정 없이 재사용합니다. 반대로 "계산" 단계(무엇을 원자료로 볼 것인가, 무엇을 집계할 것인가)는 매번 그 통계표의 구조에 맞춰 새로 작성해야 했습니다 — "표준 데이터 구조만 유지하면 완전히 동일한 코드로 재사용된다"는 이 페이지의 원래 설명은 절반만 맞는 말이며, 정확히는 "검증·작성 단계는 재사용, 계산 단계는 원자료 형태에 맞춰 매번 새로 작성"입니다. 설계 배경은 [PLAN_raw_data_redesign.md](PLAN_raw_data_redesign.md)를 참고하십시오.
 
 ---
 
