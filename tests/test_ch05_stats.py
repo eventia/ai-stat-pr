@@ -2,6 +2,7 @@ import pandas as pd
 
 from modules.stats import (
     add_calculated_indicators,
+    build_interpretation_sentences,
     check_percent_unit,
     derive_history_indicators,
     detect_special_points,
@@ -111,3 +112,42 @@ def test_derive_history_indicators_with_no_history_defaults_to_record_high():
     result = derive_history_indicators([], "2026-01", 100)
     assert result["역대최대여부"] is True
     assert result["최근3개월증감률"] == []
+    assert result["전월대비증감률"] is None
+    assert result["전년동월대비증감률"] is None
+
+
+def test_derive_history_indicators_computes_mom_and_yoy_rates_from_raw_history():
+    """8차 세션(PLAN_raw_data_redesign.md): 전월대비/전년동월대비증감률도 더 이상
+    사람이 미리 계산해서 넣는 값이 아니라, 이력(월별 총액)만으로 이 함수가 계산해야
+    한다. 2026-02(53000)과 2025-03(52000)만 있으면 2026-03의 두 증감률이 계산된다."""
+    history = [
+        {"연월": "2025-03", "값": 52000},
+        {"연월": "2026-02", "값": 53000},
+    ]
+    result = derive_history_indicators(history, "2026-03", 49700)
+    assert result["전월대비증감률"] == -6.2
+    assert result["전년동월대비증감률"] == -4.4
+
+
+def test_derive_history_indicators_returns_none_when_comparison_month_missing():
+    """전월/전년동월 데이터가 이력에 없으면 0이나 임의값으로 조용히 채우지 않고
+    None을 반환해, 호출부(pet_stats.build_indicators)가 명시적으로 처리하게 한다."""
+    history = [{"연월": "2025-01", "값": 100000}]  # 전월도 전년동월도 아님
+    result = derive_history_indicators(history, "2026-03", 49700)
+    assert result["전월대비증감률"] is None
+    assert result["전년동월대비증감률"] is None
+
+
+def test_build_interpretation_sentences_matches_add_calculated_indicators_output(sample_data):
+    """add_calculated_indicators가 위임하는 build_interpretation_sentences가 실제로
+    같은 결과를 내는지 확인 — 8차 세션에서 modules/pet_stats.py와 공유하기 위해
+    분리한 함수라, 분리 전후 동작이 달라지면 안 된다."""
+    지표 = sample_data["계산지표"]
+    특이점 = detect_special_points(
+        momRate=지표["전월대비증감률"], yoyRate=지표["전년동월대비증감률"],
+        is_record_high=sample_data["역대최대여부"],
+        recent_momRates=sample_data["최근3개월증감률"],
+    )
+    직접_호출 = build_interpretation_sentences(특이점, 지표, "온라인쇼핑 동향".split()[-1])
+    통합_호출 = add_calculated_indicators(dict(sample_data))["통계해석결과"]["해석문장"]
+    assert 직접_호출 == 통합_호출

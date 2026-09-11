@@ -43,19 +43,36 @@ def check_percent_unit(text: str, is_rate_of_rate: bool) -> bool:
     return True
 
 
-def derive_history_indicators(history: list, current_ym: str, current_value: float) -> dict:
-    """과거 월별 시계열과 이번 달 값을 비교해 역대최대여부·최근3개월증감률을 자동 계산한다.
+def _shift_month(ym: str, delta_months: int) -> str:
+    """"YYYY-MM" 문자열을 delta_months만큼 이동시킨다 (음수면 과거로)."""
+    year, month = (int(part) for part in ym.split("-"))
+    total = year * 12 + (month - 1) + delta_months
+    new_year, new_month0 = divmod(total, 12)
+    return f"{new_year:04d}-{new_month0 + 1:02d}"
 
-    검토 보고서(REVIEW_Ch02-10.md, A-1)에서 지적된 문제에 대한 수정: 기존에는
-    이 두 값을 담당자가 과거 자료를 보고 직접 조사해서 raw 데이터에 입력해야 했다.
-    `history`(과거 월별 실적, 이번 달 제외)가 주어지면 이 함수가 대신 계산한다.
+
+def derive_history_indicators(history: list, current_ym: str, current_value: float) -> dict:
+    """과거 월별 시계열과 이번 달 값만으로 4가지 지표를 전부 자동 계산한다:
+    전월대비증감률, 전년동월대비증감률, 역대최대여부, 최근3개월증감률.
+
+    검토 보고서(REVIEW_Ch02-10.md, A-1)와 8차 세션 재설계(PLAN_raw_data_redesign.md)에서
+    지적된 문제에 대한 수정: 예전에는 이 값들을 담당자가 과거 자료를 보고 직접 계산해서
+    raw 데이터에 입력해야 했다. `history`(과거 월별 실적, 이번 달 제외)만 주어지면 이제
+    이 함수가 전부 계산한다.
 
     history: [{"연월": "YYYY-MM", "값": 숫자}, ...] 순서 무관.
-    반환값이 없으면(과거 이력이 아예 없으면) 역대최대여부는 True로 간주한다
-    (비교 대상이 없는 첫 통계는 그 자체로 최댓값이므로).
+    전월/전년동월 값이 history에 없으면 그 증감률은 None으로 반환한다 — 0이나 임의값으로
+    조용히 채우지 않고, 호출부가 "계산할 수 없다"는 사실을 명시적으로 알 수 있게 한다.
+    과거 이력이 아예 없으면 역대최대여부는 True로 간주한다(비교 대상이 없는 첫 통계는
+    그 자체로 최댓값이므로).
     """
     if not history:
-        return {"역대최대여부": True, "최근3개월증감률": []}
+        return {
+            "역대최대여부": True,
+            "최근3개월증감률": [],
+            "전월대비증감률": None,
+            "전년동월대비증감률": None,
+        }
 
     현재_월 = current_ym.split("-")[1]
     같은달_과거값 = [h["값"] for h in history if h["연월"].split("-")[1] == 현재_월]
@@ -68,7 +85,56 @@ def derive_history_indicators(history: list, current_ym: str, current_value: flo
         if 이전값:
             최근3개월증감률.append(round((이번값 - 이전값) / 이전값 * 100, 1))
 
-    return {"역대최대여부": 역대최대여부, "최근3개월증감률": 최근3개월증감률}
+    history_map = {h["연월"]: h["값"] for h in history}
+
+    def _rate_vs(ym: str):
+        기준값 = history_map.get(ym)
+        if not 기준값:
+            return None
+        return round((current_value - 기준값) / 기준값 * 100, 1)
+
+    return {
+        "역대최대여부": 역대최대여부,
+        "최근3개월증감률": 최근3개월증감률,
+        "전월대비증감률": _rate_vs(_shift_month(current_ym, -1)),
+        "전년동월대비증감률": _rate_vs(_shift_month(current_ym, -12)),
+    }
+
+
+def build_interpretation_sentences(특이점: list, 계산지표: dict, 지표명: str = "거래액") -> list:
+    """특이점목록과 계산지표로부터 해석문장 목록을 만든다.
+
+    add_calculated_indicators(온라인쇼핑 동향 예시)와 modules/pet_stats.build_indicators
+    (8차 세션, 표본매출 기반 예시)가 공통으로 재사용하는 범용 함수로 분리했다 — 두 곳에
+    똑같은 6가지 분기(증가/감소 × 전월/전년동월, 연속 증가세/감소세, 역대 최대치)를
+    복사해두면 한쪽만 고치고 다른 쪽을 놓치는 사고가 나기 쉽기 때문이다.
+    """
+    해석문장 = []
+    if "역대 최대치 경신" in 특이점:
+        해석문장.append(generate_interpretation(
+            지표명, 계산지표[PRIMARY_INDICATOR], PRIMARY_UNIT, "역대 최대치 경신"))
+    # 전월 대비/전년동월 대비는 서로 다른 수치이므로, 어느 쪽이 특이점으로
+    # 감지되었는지에 맞는 값을 각각 골라 문장을 만든다. 감소 방향은 검토
+    # 보고서(A-2)에서 지적된 대로 기존에 템플릿이 아예 없어 조용히 누락되던
+    # 부분이라, abs()로 부호를 뗀 값을 "감소" 전용 템플릿에 채운다
+    # (부호를 그대로 두면 "이 -6% 감소하며..."처럼 이중 부정이 된다).
+    if "전월 대비 큰 폭 증가" in 특이점:
+        해석문장.append(generate_interpretation(
+            "거래액", 계산지표["전월대비증감률"], "%", "전월 대비 큰 폭 증가"))
+    if "전월 대비 큰 폭 감소" in 특이점:
+        해석문장.append(generate_interpretation(
+            "거래액", abs(계산지표["전월대비증감률"]), "%", "전월 대비 큰 폭 감소"))
+    if "전년동월 대비 큰 폭 증가" in 특이점:
+        해석문장.append(generate_interpretation(
+            "거래액", 계산지표["전년동월대비증감률"], "%", "전년동월 대비 큰 폭 증가"))
+    if "전년동월 대비 큰 폭 감소" in 특이점:
+        해석문장.append(generate_interpretation(
+            "거래액", abs(계산지표["전년동월대비증감률"]), "%", "전년동월 대비 큰 폭 감소"))
+    if "최근 3개월 연속 증가세" in 특이점:
+        해석문장.append(generate_interpretation("거래액", 0, "%", "최근 3개월 연속 증가세"))
+    if "최근 3개월 연속 감소세" in 특이점:
+        해석문장.append(generate_interpretation("거래액", 0, "%", "최근 3개월 연속 감소세"))
+    return 해석문장
 
 
 def add_calculated_indicators(data: dict) -> dict:
@@ -88,31 +154,7 @@ def add_calculated_indicators(data: dict) -> dict:
     )
 
     지표명 = data["문서정보"]["제목"].split()[-1] or "거래액"
-    해석문장 = []
-    if "역대 최대치 경신" in 특이점:
-        해석문장.append(generate_interpretation(
-            지표명, 지표[PRIMARY_INDICATOR], PRIMARY_UNIT, "역대 최대치 경신"))
-    # 전월 대비/전년동월 대비는 서로 다른 수치이므로, 어느 쪽이 특이점으로
-    # 감지되었는지에 맞는 값을 각각 골라 문장을 만든다. 감소 방향은 검토
-    # 보고서(A-2)에서 지적된 대로 기존에 템플릿이 아예 없어 조용히 누락되던
-    # 부분이라, abs()로 부호를 뗀 값을 "감소" 전용 템플릿에 채운다
-    # (부호를 그대로 두면 "이 -6% 감소하며..."처럼 이중 부정이 된다).
-    if "전월 대비 큰 폭 증가" in 특이점:
-        해석문장.append(generate_interpretation(
-            "거래액", 지표["전월대비증감률"], "%", "전월 대비 큰 폭 증가"))
-    if "전월 대비 큰 폭 감소" in 특이점:
-        해석문장.append(generate_interpretation(
-            "거래액", abs(지표["전월대비증감률"]), "%", "전월 대비 큰 폭 감소"))
-    if "전년동월 대비 큰 폭 증가" in 특이점:
-        해석문장.append(generate_interpretation(
-            "거래액", 지표["전년동월대비증감률"], "%", "전년동월 대비 큰 폭 증가"))
-    if "전년동월 대비 큰 폭 감소" in 특이점:
-        해석문장.append(generate_interpretation(
-            "거래액", abs(지표["전년동월대비증감률"]), "%", "전년동월 대비 큰 폭 감소"))
-    if "최근 3개월 연속 증가세" in 특이점:
-        해석문장.append(generate_interpretation("거래액", 0, "%", "최근 3개월 연속 증가세"))
-    if "최근 3개월 연속 감소세" in 특이점:
-        해석문장.append(generate_interpretation("거래액", 0, "%", "최근 3개월 연속 감소세"))
+    해석문장 = build_interpretation_sentences(특이점, 지표, 지표명)
 
     data["통계해석결과"] = {"특이점목록": 특이점, "해석문장": 해석문장}
     return data

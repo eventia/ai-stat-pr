@@ -24,16 +24,17 @@ python scripts/make_sample_excel.py        # 기본 샘플 (품목별지표 없�
 python scripts/make_sample_excel_full.py   # 전체 경로 확인용 샘플 (품목별지표 포함 → 6차시 그래프까지 생성됨)
 python scripts/make_sample_pdf.py          # PDF 입력 경로 확인용 샘플
 
-# 5. 단위 테스트 실행 (API 키 불필요, 63개)
+# 5. 단위 테스트 실행 (API 키 불필요, 75개)
 pytest tests/ -v
 
 # 6. 전체 파이프라인 실행 (API 키 필요)
-python main.py          # 온라인쇼핑 동향 예시 (xlsx 기반, 가상 데이터)
-python main_price.py    # 생필품 가격 동향 (공공데이터포털 실제 API 기반)
+python main.py            # 온라인쇼핑 동향 예시 (xlsx에 이미 계산된 표 입력)
+python main_price.py      # 생필품 가격 동향 (공공데이터포털 실제 API, 진짜 원자료)
+python main_practice.py   # 반려동물용품 예시 (표본매출 원자료 → 코드가 직접 집계·계산)
 
-# 7. 직접 한 단계씩 실습해보기 (API 키 필요) — 새 샘플 데이터로 Ch02~Ch10을 Enter로 넘기며 확인
-python scripts/make_sample_excel_practice.py   # 샘플 xlsx 생성 (최초 1회)
-python scripts/run_practice_stepbystep.py      # 단계별 실행 + 결과 확인
+# 7. 직접 한 단계씩 실습해보기 (API 키 필요) — 진짜 원자료로 Ch02~Ch10을 Enter로 넘기며 확인
+python scripts/make_sample_excel_practice_raw.py   # 샘플 xlsx 생성 (최초 1회, 계산된 숫자 없음)
+python scripts/run_practice_stepbystep.py          # 단계별 실행 + 결과 확인
 ```
 
 ## 폴더 구조
@@ -52,10 +53,15 @@ python scripts/run_practice_stepbystep.py      # 단계별 실행 + 결과 확�
 | `modules/public_api.py` | 2차시: 공공데이터포털 "온라인 수집 가격 정보" Open API 연동 (실제 서비스 키로 검증됨) |
 | `modules/price_stats.py` | 5차시(응용): 가격정보 API용 평균가격·등락률 계산, 해석문 생성 |
 | `modules/price_report.py` | 6·7·8차시(응용): 가격정보 API용 헤드라인·그래프 설명 생성 |
-| `main_price.py` | 10차시(응용): 공공데이터포털 실제 API 기반 통계 보도자료 진입점 |
+| `main_price.py` | 10차시(응용): 공공데이터포털 실제 API 기반 통계 보도자료 진입점 (진짜 원자료 예시) |
+| `modules/pet_input.py` | 8차 세션(응용): 표본 사업체별 매출 신고(원자료) 입력, 계산 없음 |
+| `modules/pet_stats.py` | 8차 세션(응용): 표본매출을 품목별로 집계 + 증감률·특이점·해석문장 계산 |
+| `main_practice.py` | 8차 세션(응용): 반려동물용품 실습 진입점 — "진짜 원자료"부터 시작하는 세 번째 예시 |
 | `tests/` | 각 차시 모듈의 단위 테스트 (LLM 호출 없이 실행 가능) |
 | `scripts/make_sample_excel.py` | 실습용 기본 샘플 xlsx 생성 (품목별지표 없음) |
 | `scripts/make_sample_excel_full.py` | 품목별지표·역대최대여부 등을 포함한 "전체 경로" 샘플 xlsx 생성 |
+| `scripts/make_sample_excel_practice_raw.py` | 표본 사업체별 매출 신고만 담은 원자료 샘플 생성 (계산된 숫자 없음) |
+| `scripts/run_practice_stepbystep.py` | Ch02~Ch10을 Enter로 한 단계씩 넘기며 직접 확인하는 실습 스크립트 |
 | `scripts/make_sample_pdf.py` | PDF 입력 경로 확인용 샘플 PDF 생성 |
 | `scripts/fetch_public_api_sample.py` | 2차시: 공공 API 연동 최소 데모 (`modules/public_api.py` 사용) |
 
@@ -87,6 +93,18 @@ python main_price.py                        # 실제 데이터로 통계 보도�
 ```
 
 `.env`의 `PUBLIC_API_KEY`로 data.go.kr의 실제 공공 API(품목 리스트 조회 + 가격정보 조회)를 호출합니다. 이 API는 총거래액 같은 집계 통계가 아니라 개별 상품의 낱개 판매가격 목록만 주므로, `main_price.py`가 실제로 여러 품목의 당월/전월/전년동월 평균가격을 계산해 `main.py`와 같은 4·6·7·8·9차시 검증 절차(수치 검증, 문체 통일, AI 감수)를 거친 보도자료를 만듭니다. `main.py`(온라인쇼핑 동향 예시)는 별도로 그대로 유지되어 있습니다.
+
+## 세 가지 예시가 서로 다른 지점에서 시작하는 이유
+
+이 프로젝트에는 진입점이 세 개 있습니다. 서로 다른 데이터를 다루기 때문이 아니라, **원자료가 어디까지 가공되어 있는가**가 다릅니다.
+
+| 진입점 | 원자료 상태 | "계산" 단계가 하는 일 |
+| --- | --- | --- |
+| `main.py` | 이미 계산된 표 (총거래액·증감률·품목별지표가 xlsx에 다 들어있음) | 특이점 판별·해석문장 생성만 담당 |
+| `main_price.py` | 진짜 원자료 (공공데이터포털의 개별 상품 가격 목록) | 평균가격·증감률 계산부터 전부 담당 |
+| `main_practice.py` | 합성 원자료 (표본 사업체별 매출 신고, 실제 API는 없음) | 품목별 집계·증감률·특이점 계산부터 전부 담당 |
+
+`main.py`가 "이미 계산된 표"에서 시작하는 것 자체는 잘못된 설계가 아닙니다 — 실제 통계청 발표자료도 전월비·전년동월비를 이미 계산해서 함께 공개하는 경우가 흔합니다. 다만 "처음부터 배우는 실습"이라면 계산 자체를 코드가 하는 걸 봐야 의미가 있으므로, `main_practice.py`는 일부러 `main_price.py`처럼 집계 전 원자료에서 시작하도록 설계했습니다(자세한 설계 배경은 [PLAN_raw_data_redesign.md](PLAN_raw_data_redesign.md) 참고).
 
 ## 진행 기록 / 다음에 할 일
 

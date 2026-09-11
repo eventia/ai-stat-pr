@@ -15,11 +15,12 @@ myvenv\Scripts\activate.bat        # CMD
 
 # 2) 아직도 테스트가 통과하는지 확인 (환경이 그대로인지 검증)
 pytest tests/ -v
-# 기대 결과: 63 passed
+# 기대 결과: 75 passed
 
 # 3) API 키가 준비됐다면 .env 확인 후 실제 파이프라인 실행
-python main.py          # 온라인쇼핑 동향 예시 (xlsx 기반)
-python main_price.py    # 가격정보 공공 API 기반 실제 통계 보도자료
+python main.py            # 온라인쇼핑 동향 예시 (이미 계산된 표 입력)
+python main_price.py      # 가격정보 공공 API 기반 실제 통계 보도자료 (진짜 원자료)
+python main_practice.py   # 반려동물용품 예시 (표본매출 원자료 → 코드가 직접 집계·계산)
 ```
 
 `pytest`가 50개 모두 통과하지 않는다면, 그 사이 파이썬/패키지 버전이 바뀌었거나 파일이 수정된 것이므로 원인부터 파악하세요.
@@ -109,6 +110,14 @@ python main_price.py    # 가격정보 공공 API 기반 실제 통계 보도자
 - [x] 가격정보 API를 실제로 사용하는 `main_price.py` 통계 보도자료 파이프라인 구축 (2026-09-07)
 - [x] `review.py`의 음수 증감률 검증 버그, 헤드라인 숫자 콤마 누락 버그 발견·수정 (47개 → 50개)
 - [x] `REVIEW_Ch02-10.md` 검토 보고서 작성 및 개선 제안 6가지 전부 실행 (2026-09-10, 50개 → 61개)
+
+### 8차: "진짜 원자료"부터 시작하는 실습으로 근본 재설계 (2026-09-11)
+- 사용자가 "실습을 처음부터 시작한다면 왜 이미 계산된 값이 든 파일에서 시작하는가"를 지적 → `main_price.py` 스타일로 근본 재설계하기로 결정, [PLAN_raw_data_redesign.md](PLAN_raw_data_redesign.md)로 먼저 설계 문서화
+- `modules/pet_input.py`(원자료 3개 시트 읽기, 계산 없음), `modules/pet_stats.py`(표본매출을 품목별로 groupby 집계 + 증감률·특이점·해석문장 전부 계산) 신규 작성
+- `modules/stats.py::derive_history_indicators`를 확장해 전월대비/전년동월대비증감률까지 이력만으로 계산하도록 함(기존에는 역대최대·최근3개월만 자동 계산). "특이점→해석문장" 로직을 `build_interpretation_sentences`로 추출해 `add_calculated_indicators`와 `pet_stats.py`가 공유
+- `main_practice.py` 신규 진입점 — `main.py`/`main_price.py`와 나란한 세 번째 예시. 계산 단계만 새로 작성하고, 그래프·헤드라인·본문·검수·저장은 전부 기존 함수 재사용
+- 실제 실행 중 버그 1건 추가 발견·수정: 이력(float)과 새로 계산한 총거래액(int)이 섞여 "49,700.0억 원"으로 표시되며 수치교차검증이 실패하던 문제 (상세: [IMPLEMENTATION_LOG.md "13. 8차 세션"](IMPLEMENTATION_LOG.md))
+- 테스트 63개 → **75개**로 확대, 전부 통과. `data/raw/반려동물용품_2026_03_원자료.xlsx`로 표기오류 0건·수치교차검증 통과 확인
 
 ---
 
