@@ -339,8 +339,31 @@ def render_content_slide(prs, page, base_dir):
     line_box.line.width = Pt(1)
 
     cursor_y = 1.45
-    max_y = SLIDE_H_IN - 0.2
-    for segment in page["segments"]:
+    segments = page["segments"]
+    i = 0
+    n = len(segments)
+    while i < n:
+        segment = segments[i]
+        if segment["type"] == "image":
+            # 연속된 이미지 세그먼트는 한 줄에 나란히 배치한다(세로로 쌓으면
+            # 슬라이드 높이를 크게 넘어가기 때문).
+            group = []
+            while i < n and segments[i]["type"] == "image":
+                group.append(segments[i])
+                i += 1
+            gap = 0.3
+            slot_w = (CONTENT_W_IN - gap * (len(group) - 1)) / len(group)
+            sizes = [estimate_image_size(seg, base_dir, slot_w, max_h_in=3.6) for seg in group]
+            row_h = max(h for _, h in sizes)
+            total_w = sum(w for w, _ in sizes) + gap * (len(group) - 1)
+            x = MARGIN_IN + (CONTENT_W_IN - total_w) / 2
+            for seg, (w, h) in zip(group, sizes):
+                y_offset = cursor_y + (row_h - h) / 2
+                add_image_segment(slide, seg, base_dir, x, y_offset, w, h)
+                x += w + gap
+            cursor_y += row_h + 0.15
+            continue
+
         if segment["type"] == "text":
             h = estimate_text_height(segment, CONTENT_W_IN, 16)
             add_text_segment(slide, segment, MARGIN_IN, cursor_y, CONTENT_W_IN, h)
@@ -350,13 +373,10 @@ def render_content_slide(prs, page, base_dir):
         elif segment["type"] == "table":
             h = estimate_table_height(segment)
             add_table_segment(slide, segment, MARGIN_IN, cursor_y, CONTENT_W_IN, h)
-        elif segment["type"] == "image":
-            w, h = estimate_image_size(segment, base_dir, CONTENT_W_IN)
-            x = MARGIN_IN + (CONTENT_W_IN - w) / 2
-            add_image_segment(slide, segment, base_dir, x, cursor_y, w, h)
         else:
             h = 0
         cursor_y += h + 0.15
+        i += 1
 
     return slide
 
