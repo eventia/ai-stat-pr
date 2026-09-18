@@ -347,13 +347,13 @@ TASKS.md의 "🔴 최우선" 항목(실제 API 키로 `python main.py`를 돌려
 
 | 파일 | 수정 내용 |
 | --- | --- |
-| [modules/stats.py](modules/stats.py) | `generate_interpretation`에 "전월/전년동월 대비 큰 폭 감소", "최근 3개월 연속 증가세/감소세" 템플릿 추가. `add_calculated_indicators`가 6가지 특이점 유형을 모두 해석문장으로 연결하도록 수정(감소는 `abs()`로 부호를 뗀 값 사용, 이중 부정 방지). `derive_history_indicators(history, current_ym, current_value)` 신규 — 과거 월별 이력과 이번 달 값을 비교해 `역대최대여부`/`최근3개월증감률`을 자동 계산 |
-| [modules/io.py](modules/io.py) | `load_input`의 xlsx 분기가 "이력" 시트(연월, 총거래액)가 있으면 `derive_history_indicators`를 호출해 자동 계산하고, `월별이력` 필드에도 담아 6차시 꺾은선그래프에 재사용할 수 있게 함. 명시적으로 `역대최대여부`/`최근3개월증감률` 열이 있으면 그 값을 우선(자동 계산 결과를 덮어쓰지 않도록 `setdefault` 사용). `계산지표` 딕셔너리도 `REQUIRED_FIELDS` 기반으로 생성하도록 단순화 |
-| [modules/charts.py](modules/charts.py) | `build_visual_descriptions`를 `품목별지표`/`월별이력` 각각 독립적으로 조건 분기하도록 재작성 — `월별이력`이 있으면 실제로 꺾은선 그래프를 그려, 지금까지 코드는 있지만 도달 불가능했던 "line" 분기를 처음으로 실제 파이프라인에 연결 |
-| [modules/clean.py](modules/clean.py) | `clean_and_structure`가 `월별이력` 필드도 통과시키도록 한 줄 추가 |
-| [modules/write.py](modules/write.py) | `REQUIRED_FIELDS`/`지표_단위`를 `modules/config.py`에서 import하도록 변경(중복 정의 제거). `build_headline_prompt`에 `참고_제목후보` 선택 인자 추가 — 4차시 `generate_summary`의 `제목후보`를 "그대로 채택하지 않아도 되는 참고용 표현 아이디어"로만 프롬프트에 전달(새로운 숫자는 들여오지 않으므로 `verify_numbers` 검증에 영향 없음) |
-| [modules/config.py](modules/config.py) | 신규 — `PRIMARY_INDICATOR`, `PRIMARY_UNIT`, `REQUIRED_FIELDS`, `INDICATOR_UNITS`를 한곳에 모음. 다만 이것만으로 "다른 통계표 재사용"이 완전히 해결되는 것은 아니며, `modules/stats.py`/`modules/io.py`의 필드 구조 의존은 여전히 남아 있다는 것을 파일 docstring에 명시 |
-| [main.py](main.py) | 그래프 단계 호출 조건을 `"품목별지표" in data`에서 `"품목별지표" in data or "월별이력" in data`로 확장. `add_calculated_indicators` 다음에 `data["요약결과"] = generate_summary(data)` 추가 — 이전까지 어디서도 호출되지 않던 4차시 함수를 실제로 연결 |
+| [modules/stats.py](../modules/stats.py) | `generate_interpretation`에 "전월/전년동월 대비 큰 폭 감소", "최근 3개월 연속 증가세/감소세" 템플릿 추가. `add_calculated_indicators`가 6가지 특이점 유형을 모두 해석문장으로 연결하도록 수정(감소는 `abs()`로 부호를 뗀 값 사용, 이중 부정 방지). `derive_history_indicators(history, current_ym, current_value)` 신규 — 과거 월별 이력과 이번 달 값을 비교해 `역대최대여부`/`최근3개월증감률`을 자동 계산 |
+| [modules/io.py](../modules/io.py) | `load_input`의 xlsx 분기가 "이력" 시트(연월, 총거래액)가 있으면 `derive_history_indicators`를 호출해 자동 계산하고, `월별이력` 필드에도 담아 6차시 꺾은선그래프에 재사용할 수 있게 함. 명시적으로 `역대최대여부`/`최근3개월증감률` 열이 있으면 그 값을 우선(자동 계산 결과를 덮어쓰지 않도록 `setdefault` 사용). `계산지표` 딕셔너리도 `REQUIRED_FIELDS` 기반으로 생성하도록 단순화 |
+| [modules/charts.py](../modules/charts.py) | `build_visual_descriptions`를 `품목별지표`/`월별이력` 각각 독립적으로 조건 분기하도록 재작성 — `월별이력`이 있으면 실제로 꺾은선 그래프를 그려, 지금까지 코드는 있지만 도달 불가능했던 "line" 분기를 처음으로 실제 파이프라인에 연결 |
+| [modules/clean.py](../modules/clean.py) | `clean_and_structure`가 `월별이력` 필드도 통과시키도록 한 줄 추가 |
+| [modules/write.py](../modules/write.py) | `REQUIRED_FIELDS`/`지표_단위`를 `modules/config.py`에서 import하도록 변경(중복 정의 제거). `build_headline_prompt`에 `참고_제목후보` 선택 인자 추가 — 4차시 `generate_summary`의 `제목후보`를 "그대로 채택하지 않아도 되는 참고용 표현 아이디어"로만 프롬프트에 전달(새로운 숫자는 들여오지 않으므로 `verify_numbers` 검증에 영향 없음) |
+| [modules/config.py](../modules/config.py) | 신규 — `PRIMARY_INDICATOR`, `PRIMARY_UNIT`, `REQUIRED_FIELDS`, `INDICATOR_UNITS`를 한곳에 모음. 다만 이것만으로 "다른 통계표 재사용"이 완전히 해결되는 것은 아니며, `modules/stats.py`/`modules/io.py`의 필드 구조 의존은 여전히 남아 있다는 것을 파일 docstring에 명시 |
+| [main.py](../main.py) | 그래프 단계 호출 조건을 `"품목별지표" in data`에서 `"품목별지표" in data or "월별이력" in data`로 확장. `add_calculated_indicators` 다음에 `data["요약결과"] = generate_summary(data)` 추가 — 이전까지 어디서도 호출되지 않던 4차시 함수를 실제로 연결 |
 | `Ch03/04/05/06/07/10-PT내용.md` | 위 수정 내용을 `[수정, 7차 세션]` 노트로 각 문서에 반영, 코드 예시도 최신 구현과 일치하도록 갱신 |
 
 ### 12-3. 왜 완전한 리팩터링 대신 이 수준으로 멈췄는가
@@ -399,13 +399,13 @@ REVIEW_Ch02-10.md가 지적한 4가지 핵심 문제 중 3가지(A-1, A-2, A-3)�
 
 | 파일 | 내용 |
 | --- | --- |
-| [modules/stats.py](modules/stats.py) | `derive_history_indicators`가 `역대최대여부`/`최근3개월증감률`뿐 아니라 `전월대비증감률`/`전년동월대비증감률`까지 이력만으로 계산하도록 확장(`_shift_month` 헬퍼로 전월/전년동월 연월 계산, 이력에 없으면 조용히 0 처리하지 않고 `None` 반환). "특이점목록 → 해석문장" 변환 로직을 `add_calculated_indicators`에서 `build_interpretation_sentences`라는 별도 함수로 추출 — `modules/pet_stats.py`와 공유하기 위함이며, 같은 로직이 두 곳에 복사되어 divergent bug가 나는 것을 방지 |
-| [modules/pet_input.py](modules/pet_input.py) | 신규. "표본매출"(집계 전 원자료)·"이력"(월별 총액)·"메모"(숫자 없는 정성적 원문) 세 시트를 읽기만 하는 함수. numpy 스칼라를 순수 파이썬 타입으로 즉시 변환(이후 json.dumps 직렬화 문제 방지) |
-| [modules/pet_stats.py](modules/pet_stats.py) | 신규. `aggregate_sample_sales`(표본매출을 품목별로 groupby 집계 → 당월거래액·비중·순위)와 `build_indicators`(집계 + `derive_history_indicators` 호출 + 특이점·해석문장·월별이력까지 전부 조립). `modules/stats.py`의 범용 함수(`detect_special_points`, `build_interpretation_sentences`)를 그대로 재사용 |
-| [modules/clean.py](modules/clean.py) | `표본매출`/`이력`/`연월` 필드를 계산 없이 통과시키는 조건문 3줄 추가 (기존 `품목별지표`/`월별이력` 패턴과 동일) |
-| [main_practice.py](main_practice.py) | 신규. `main.py`/`main_price.py`와 나란한 세 번째 진입점. "계산" 단계만 `pet_input`+`pet_stats`로 교체하고, 그 이후(그래프·헤드라인·본문·검수·저장)는 `main.py`가 쓰는 함수를 전부 수정 없이 재사용 |
-| [scripts/make_sample_excel_practice_raw.py](scripts/make_sample_excel_practice_raw.py) | 신규. 표본 사업체 23곳(품목 5개)의 매출 신고만 담은 xlsx 생성 — 합계·비중·순위·증감률이 전혀 없음. 기존 `scripts/make_sample_excel_practice.py`(이미 계산된 값이 든 버전)는 삭제 |
-| [scripts/run_practice_stepbystep.py](scripts/run_practice_stepbystep.py) | 1단계(입력)와 4단계(계산)를 `pet_input`/`pet_stats` 기반으로 교체. 나머지 단계는 동일 |
+| [modules/stats.py](../modules/stats.py) | `derive_history_indicators`가 `역대최대여부`/`최근3개월증감률`뿐 아니라 `전월대비증감률`/`전년동월대비증감률`까지 이력만으로 계산하도록 확장(`_shift_month` 헬퍼로 전월/전년동월 연월 계산, 이력에 없으면 조용히 0 처리하지 않고 `None` 반환). "특이점목록 → 해석문장" 변환 로직을 `add_calculated_indicators`에서 `build_interpretation_sentences`라는 별도 함수로 추출 — `modules/pet_stats.py`와 공유하기 위함이며, 같은 로직이 두 곳에 복사되어 divergent bug가 나는 것을 방지 |
+| [modules/pet_input.py](../modules/pet_input.py) | 신규. "표본매출"(집계 전 원자료)·"이력"(월별 총액)·"메모"(숫자 없는 정성적 원문) 세 시트를 읽기만 하는 함수. numpy 스칼라를 순수 파이썬 타입으로 즉시 변환(이후 json.dumps 직렬화 문제 방지) |
+| [modules/pet_stats.py](../modules/pet_stats.py) | 신규. `aggregate_sample_sales`(표본매출을 품목별로 groupby 집계 → 당월거래액·비중·순위)와 `build_indicators`(집계 + `derive_history_indicators` 호출 + 특이점·해석문장·월별이력까지 전부 조립). `modules/stats.py`의 범용 함수(`detect_special_points`, `build_interpretation_sentences`)를 그대로 재사용 |
+| [modules/clean.py](../modules/clean.py) | `표본매출`/`이력`/`연월` 필드를 계산 없이 통과시키는 조건문 3줄 추가 (기존 `품목별지표`/`월별이력` 패턴과 동일) |
+| [main_practice.py](../main_practice.py) | 신규. `main.py`/`main_price.py`와 나란한 세 번째 진입점. "계산" 단계만 `pet_input`+`pet_stats`로 교체하고, 그 이후(그래프·헤드라인·본문·검수·저장)는 `main.py`가 쓰는 함수를 전부 수정 없이 재사용 |
+| [scripts/make_sample_excel_practice_raw.py](../scripts/make_sample_excel_practice_raw.py) | 신규. 표본 사업체 23곳(품목 5개)의 매출 신고만 담은 xlsx 생성 — 합계·비중·순위·증감률이 전혀 없음. 기존 `scripts/make_sample_excel_practice.py`(이미 계산된 값이 든 버전)는 삭제 |
+| [scripts/run_practice_stepbystep.py](../scripts/run_practice_stepbystep.py) | 1단계(입력)와 4단계(계산)를 `pet_input`/`pet_stats` 기반으로 교체. 나머지 단계는 동일 |
 
 재사용만 하고 전혀 수정하지 않은 것: `modules/nlp.py` 전체, `modules/charts.py::build_visual_descriptions`, `modules/write.py` 전체(`generate_summary`, `generate_headline_set`, `generate_body_paragraphs` 등 — `REQUIRED_FIELDS`가 `modules/config.py`로 분리되어 있어 가능했음, 7차 세션의 리팩터링이 여기서 실제로 값어치를 함), `modules/review.py` 전체, `modules/io.py::save_final_document`.
 

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""ChNN-PT내용.md -> lect/CH-NN-Content.md 일괄 변환 스크립트.
+"""pt/ChNN-PT내용.md -> lect/CH-NN-Content.md 일괄 변환 스크립트.
 
 이 스크립트가 하는 일 (Ch02~Ch10):
 1. 맨 앞에 "과정명"/"차시명"/"도입"/"학습내용,학습목표" 4개 페이지를 새로 삽입한다
@@ -14,8 +14,8 @@
 
 Ch01은 실습 내용이 강의안(PT) 안에 섞여 있는 유일한 차시라 처리 방식이 다르다.
 Ch01-PT내용.md를 자동 변환하는 대신, 이미 사람이 페이지 분리·실습 제거·도입/학습목표
-작성을 마친 `re-ch01.md`(프로젝트 루트)를 입력으로 받아 "[Note]" 표시만 추가한다.
-`re-ch01.md`가 없으면 Ch01은 건너뛴다.
+작성을 마친 `pt/re-ch01.md`를 입력으로 받아 "[Note]" 표시만 추가한다.
+`pt/re-ch01.md`가 없으면 Ch01은 건너뛴다.
 
 실행: python scripts/generate_lecture_content.py
 결과: lect/CH-01-Content.md ~ lect/CH-10-Content.md
@@ -24,6 +24,7 @@ import os
 import re
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+PT_DIR = os.path.join(PROJECT_ROOT, "pt")
 LECT_DIR = os.path.join(PROJECT_ROOT, "lect")
 
 COURSE_NAME = 'AI를 활용한 통계 보도자료 작성(NLP+LLM)'
@@ -391,7 +392,7 @@ CHAPTERS = {
 def main():
     os.makedirs(LECT_DIR, exist_ok=True)
 
-    ch01_src = os.path.join(PROJECT_ROOT, "re-ch01.md")
+    ch01_src = os.path.join(PT_DIR, "re-ch01.md")
     if os.path.exists(ch01_src):
         with open(ch01_src, "r", encoding="utf-8") as f:
             out = transform_ch01(f.read())
@@ -400,10 +401,10 @@ def main():
             f.write(out)
         print(f"generated {dst}")
     else:
-        print("re-ch01.md 없음 — Ch01 건너뜀 (실습 제거·도입/학습목표 작성이 먼저 필요)")
+        print("pt/re-ch01.md 없음 — Ch01 건너뜀 (실습 제거·도입/학습목표 작성이 먼저 필요)")
 
     for n, spec in CHAPTERS.items():
-        src = os.path.join(PROJECT_ROOT, f"Ch{n:02d}-PT내용.md")
+        src = os.path.join(PT_DIR, f"Ch{n:02d}-PT내용.md")
         with open(src, "r", encoding="utf-8") as f:
             text = f.read()
         out = transform(text, n, spec["title"], spec["intro"], spec["content"], spec["goals"])

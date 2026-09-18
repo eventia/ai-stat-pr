@@ -94,7 +94,7 @@ def main(파일경로: str):
 
 > **[수정] 3단계 안전장치 및 그래프 단계 재통합**: 기존 `main()`은 `review_press_release`(AI 감수)만 `검수결과`에 담고, 9차시에서 만든 자동 수치·표기 검증(`check_formatting_errors`, `cross_check_all_numbers`)과 6차시의 그래프 설명 단계를 호출하지 않았습니다. 이는 1차시에서 제시한 "계산은 프로그램이 전담하고 AI 감수는 마지막 확인용"이라는 설계 철학과 어긋나므로, 두 단계를 다시 파이프라인에 포함했습니다. `검수결과`도 자동 검증 결과와 AI 감수 결과를 함께 담도록 구조를 변경했습니다(아래 실행 결과 예시와 저장 함수도 이에 맞춰 함께 수정했습니다).
 >
-> **[수정, 7차 세션] 검토 보고서(REVIEW_Ch02-10.md) 개선 제안 반영**: `main()`에 두 가지가 추가되었습니다. ① 그래프 단계 호출 조건을 `"품목별지표" in data`에서 `"품목별지표" in data or "월별이력" in data`로 넓혀, 품목별 데이터가 없어도 월별 이력만 있으면 꺾은선 그래프가 생성되도록 했습니다. ② `add_calculated_indicators` 다음 줄에 `data["요약결과"] = generate_summary(data)`를 추가해, 이전까지 호출된 적 없던 4차시 함수를 실제로 파이프라인에 연결했습니다. 실제 코드는 [main.py](main.py)를 참고하십시오.
+> **[수정, 7차 세션] 검토 보고서(REVIEW_Ch02-10.md) 개선 제안 반영**: `main()`에 두 가지가 추가되었습니다. ① 그래프 단계 호출 조건을 `"품목별지표" in data`에서 `"품목별지표" in data or "월별이력" in data`로 넓혀, 품목별 데이터가 없어도 월별 이력만 있으면 꺾은선 그래프가 생성되도록 했습니다. ② `add_calculated_indicators` 다음 줄에 `data["요약결과"] = generate_summary(data)`를 추가해, 이전까지 호출된 적 없던 4차시 함수를 실제로 파이프라인에 연결했습니다. 실제 코드는 [main.py](../main.py)를 참고하십시오.
 
 ---
 
@@ -206,7 +206,7 @@ def save_final_document(data: dict):
 > | `main_price.py` | 진짜 원자료 (공공데이터포털 개별 상품 가격) | 평균가격·증감률 계산부터 전부 | 그래프·헤드라인·본문·검수 재사용, 계산 로직만 새로 작성(`price_stats.py`) |
 > | `main_practice.py` | 합성 원자료 (표본 사업체 매출 신고) | 품목별 집계·증감률 계산부터 전부 | 위와 동일한 원칙, 계산 로직만 새로 작성(`pet_stats.py`) |
 >
-> 세 예시 모두 `modules/review.py`(검증·문체통일·AI감수) 전체와 `modules/write.py`의 본문 확장 함수(`expand_to_paragraph`, `generate_body_paragraphs`)를 수정 없이 재사용합니다. 반대로 "계산" 단계(무엇을 원자료로 볼 것인가, 무엇을 집계할 것인가)는 매번 그 통계표의 구조에 맞춰 새로 작성해야 했습니다 — "표준 데이터 구조만 유지하면 완전히 동일한 코드로 재사용된다"는 이 페이지의 원래 설명은 절반만 맞는 말이며, 정확히는 "검증·작성 단계는 재사용, 계산 단계는 원자료 형태에 맞춰 매번 새로 작성"입니다. 설계 배경은 [PLAN_raw_data_redesign.md](PLAN_raw_data_redesign.md)를 참고하십시오.
+> 세 예시 모두 `modules/review.py`(검증·문체통일·AI감수) 전체와 `modules/write.py`의 본문 확장 함수(`expand_to_paragraph`, `generate_body_paragraphs`)를 수정 없이 재사용합니다. 반대로 "계산" 단계(무엇을 원자료로 볼 것인가, 무엇을 집계할 것인가)는 매번 그 통계표의 구조에 맞춰 새로 작성해야 했습니다 — "표준 데이터 구조만 유지하면 완전히 동일한 코드로 재사용된다"는 이 페이지의 원래 설명은 절반만 맞는 말이며, 정확히는 "검증·작성 단계는 재사용, 계산 단계는 원자료 형태에 맞춰 매번 새로 작성"입니다. 설계 배경은 [PLAN_raw_data_redesign.md](../docs/PLAN_raw_data_redesign.md)를 참고하십시오.
 
 ---
 

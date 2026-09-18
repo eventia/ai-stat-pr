@@ -8,4 +8,5 @@ images/*.png
 .pytest_cache/
 data/raw/*.xlsx
 data/raw/*.pdf
+data/processed/*.json
 result-ant/

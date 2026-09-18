@@ -294,7 +294,7 @@ def add_calculated_indicators(data: dict) -> dict:
     return data
 ```
 
-`add_calculated_indicators`는 이번 차시에서 만든 `detect_special_points`, `generate_interpretation`을 순서대로 호출하여 표준 데이터의 `통계해석결과` 필드를 채웁니다. `generate_interpretation`의 템플릿 딕셔너리에도 "전월/전년동월 대비 큰 폭 감소"와 "최근 3개월 연속 증가세/감소세" 항목이 함께 추가되었습니다([modules/stats.py](modules/stats.py) 참고).
+`add_calculated_indicators`는 이번 차시에서 만든 `detect_special_points`, `generate_interpretation`을 순서대로 호출하여 표준 데이터의 `통계해석결과` 필드를 채웁니다. `generate_interpretation`의 템플릿 딕셔너리에도 "전월/전년동월 대비 큰 폭 감소"와 "최근 3개월 연속 증가세/감소세" 항목이 함께 추가되었습니다([modules/stats.py](../modules/stats.py) 참고).
 
 > **[수정, 8차 세션] "특이점 → 해석문장" 변환 로직을 별도 함수로 분리**: 6가지 분기(증가/감소 × 전월/전년동월, 연속 증가세/감소세, 역대 최대치)를 `add_calculated_indicators` 안에 그대로 두면, 8차 세션에서 새로 만든 응용 시나리오(원자료부터 시작하는 반려동물용품 실습, 페이지 13-3 참고)가 이 로직을 다시 복사해서 써야 합니다. 같은 로직이 두 곳에 복사되면 한쪽만 고치고 다른 쪽을 놓치는 사고가 나기 쉬우므로, `build_interpretation_sentences`라는 별도 함수로 뽑아내 두 시나리오가 함께 호출하도록 했습니다. 동작 결과는 이전과 동일합니다.
 
@@ -304,7 +304,7 @@ def add_calculated_indicators(data: dict) -> dict:
 
 > **[수정, 7차 세션] "역대 최대" 판별이 실제로는 자동화되지 않던 문제 수정 (REVIEW_Ch02-10.md A-1)**: 페이지 6에서 `history_df`와 비교해 `is_record_high`를 계산하는 코드를 보여줬지만, 실제로 그 코드를 호출하는 함수가 프로젝트 어디에도 없어 담당자가 과거 자료를 직접 조사해서 `역대최대여부`/`최근3개월증감률` 값을 수작업으로 입력해야 했습니다. 이제 `derive_history_indicators`가 과거 월별 이력을 실제로 비교해 이 두 값을 자동 계산하며, `modules/io.py`의 `load_input`이 xlsx의 "이력" 시트를 읽어 이 함수를 자동으로 호출합니다(7차시 페이지 3-1 참고).
 >
-> **[수정, 8차 세션] 전월대비/전년동월대비증감률까지 이력만으로 계산하도록 확장**: 7차 세션 버전은 역대최대·최근3개월만 자동 계산했고, 페이지 2(`pct_change`)의 전월대비/전년동월대비증감률은 여전히 담당자가 미리 계산해서 넣어야 했습니다. 사용자가 "실습을 처음부터 시작한다면 왜 이미 계산된 값에서 시작하는가"를 지적한 것을 계기로([PLAN_raw_data_redesign.md](PLAN_raw_data_redesign.md) 참고), 같은 `history`만으로 이 두 증감률까지 계산하도록 확장했습니다. 전월/전년동월에 해당하는 값이 `history`에 없으면 0이나 임의값으로 조용히 채우지 않고 `None`을 반환합니다 — 계산할 수 없다는 사실을 호출부가 명시적으로 알 수 있게 하기 위함입니다.
+> **[수정, 8차 세션] 전월대비/전년동월대비증감률까지 이력만으로 계산하도록 확장**: 7차 세션 버전은 역대최대·최근3개월만 자동 계산했고, 페이지 2(`pct_change`)의 전월대비/전년동월대비증감률은 여전히 담당자가 미리 계산해서 넣어야 했습니다. 사용자가 "실습을 처음부터 시작한다면 왜 이미 계산된 값에서 시작하는가"를 지적한 것을 계기로([PLAN_raw_data_redesign.md](../docs/PLAN_raw_data_redesign.md) 참고), 같은 `history`만으로 이 두 증감률까지 계산하도록 확장했습니다. 전월/전년동월에 해당하는 값이 `history`에 없으면 0이나 임의값으로 조용히 채우지 않고 `None`을 반환합니다 — 계산할 수 없다는 사실을 호출부가 명시적으로 알 수 있게 하기 위함입니다.
 
 ```python
 def _shift_month(ym: str, delta_months: int) -> str:
@@ -360,7 +360,7 @@ def derive_history_indicators(history: list, current_ym: str, current_value: flo
 
 ### [추가] 페이지 13-3. Python 코드, 원자료가 "집계 전 개별 기록"일 때 (aggregate_sample_sales)
 
-> **[수정, 8차 세션] "실습을 처음부터 시작한다면 왜 이미 계산된 값에서 시작하는가"라는 지적에 대한 대응**: 지금까지 이 차시의 모든 예시(`category_df`, `add_calculated_indicators`)는 "총거래액"과 "품목별 당월거래액"이 이미 표에 정리되어 있다고 가정했습니다. 그런데 실제 통계 생산 과정에서는 그 표 자체가 처음부터 존재하지 않습니다 — 통계청의 온라인쇼핑 동향도 개별 소비자 거래를 전수조사하는 게 아니라, **표본 사업체들이 신고한 매출을 취합**해서 만듭니다. "표본 사업체별 매출 신고"(집계 전 원자료)만 있을 때, 품목별 합계·비중·순위를 직접 계산하는 코드가 필요합니다(자세한 설계 배경은 [PLAN_raw_data_redesign.md](PLAN_raw_data_redesign.md) 참고).
+> **[수정, 8차 세션] "실습을 처음부터 시작한다면 왜 이미 계산된 값에서 시작하는가"라는 지적에 대한 대응**: 지금까지 이 차시의 모든 예시(`category_df`, `add_calculated_indicators`)는 "총거래액"과 "품목별 당월거래액"이 이미 표에 정리되어 있다고 가정했습니다. 그런데 실제 통계 생산 과정에서는 그 표 자체가 처음부터 존재하지 않습니다 — 통계청의 온라인쇼핑 동향도 개별 소비자 거래를 전수조사하는 게 아니라, **표본 사업체들이 신고한 매출을 취합**해서 만듭니다. "표본 사업체별 매출 신고"(집계 전 원자료)만 있을 때, 품목별 합계·비중·순위를 직접 계산하는 코드가 필요합니다(자세한 설계 배경은 [PLAN_raw_data_redesign.md](../docs/PLAN_raw_data_redesign.md) 참고).
 
 ```python
 from collections import defaultdict
@@ -394,7 +394,7 @@ def aggregate_sample_sales(표본매출: list) -> list:
 품목별지표 = aggregate_sample_sales(표본매출)
 ```
 
-`category_df`(페이지 4)가 이미 "당월거래액" 컬럼을 갖고 시작했다면, `aggregate_sample_sales`는 그 컬럼 자체를 개별 신고 건들을 `품목`별로 더해서 만들어냅니다. 이렇게 계산된 `품목별지표`와 `derive_history_indicators`(페이지 13-2)의 결과를 합치면, "표본매출"과 "이력"이라는 두 가지 원자료만으로 `add_calculated_indicators`가 하던 일을 전부 대체할 수 있습니다 — 실제 구현은 [modules/pet_stats.py](modules/pet_stats.py)의 `build_indicators` 함수를 참고하십시오(10차시 페이지 3의 "세 가지 예시 비교" 표에서 전체 흐름을 다시 정리합니다).
+`category_df`(페이지 4)가 이미 "당월거래액" 컬럼을 갖고 시작했다면, `aggregate_sample_sales`는 그 컬럼 자체를 개별 신고 건들을 `품목`별로 더해서 만들어냅니다. 이렇게 계산된 `품목별지표`와 `derive_history_indicators`(페이지 13-2)의 결과를 합치면, "표본매출"과 "이력"이라는 두 가지 원자료만으로 `add_calculated_indicators`가 하던 일을 전부 대체할 수 있습니다 — 실제 구현은 [modules/pet_stats.py](../modules/pet_stats.py)의 `build_indicators` 함수를 참고하십시오(10차시 페이지 3의 "세 가지 예시 비교" 표에서 전체 흐름을 다시 정리합니다).
 
 ---
 
