@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from modules.io import load_input, save_final_document
+from modules.export import save_pdf, save_hwpx
 from modules.clean import clean_and_structure
 from modules.nlp import analyze_document
 from modules.stats import add_calculated_indicators
@@ -54,8 +55,16 @@ def main(파일경로: str) -> dict:
             "수치교차검증": cross_check_all_numbers(data["최종본"], data),
             "AI감수지적사항": review_press_release(data["최종본"], data),
         }
-        # 6. 저장
+        # 6. 저장: txt를 먼저 저장하고 PDF·HWPX는 형식마다 따로 시도한다.
+        # (한글 폰트가 없어 PDF가 실패해도 HWPX와 이미 만든 결과를 잃지 않도록 경고만 남긴다)
         save_final_document(data)
+        data["출력파일"] = {}
+        for 형식, 저장 in (("hwpx", save_hwpx), ("pdf", save_pdf)):
+            try:
+                data["출력파일"][형식] = 저장(data)
+            except Exception as e:
+                logging.error(f"{형식} 저장 실패: {e}")
+                print(f"[경고] {형식} 저장 실패 (txt는 저장됨): {e}")
         logging.info("파이프라인 완료")
         return data
     except Exception as e:
@@ -69,3 +78,4 @@ if __name__ == "__main__":
     print(결과["최종본"])
     print("수치 교차 검증 통과 여부:", 결과["검수결과"]["수치교차검증"]["통과"])
     print("표기 오류 검사:", 결과["검수결과"]["표기오류검사"])
+    print("저장된 파일:", 결과["출력파일"])

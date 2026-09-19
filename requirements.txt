@@ -9,3 +9,5 @@ kiwipiepy
 networkx
 matplotlib
 pytest
+reportlab
+python-hwpx

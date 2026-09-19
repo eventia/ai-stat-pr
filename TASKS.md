@@ -15,7 +15,7 @@ myvenv\Scripts\activate.bat        # CMD
 
 # 2) 아직도 테스트가 통과하는지 확인 (환경이 그대로인지 검증)
 pytest tests/ -v
-# 기대 결과: 75 passed
+# 기대 결과: 84 passed
 
 # 3) API 키가 준비됐다면 .env 확인 후 실제 파이프라인 실행
 python main.py            # 온라인쇼핑 동향 예시 (이미 계산된 표 입력)
@@ -23,7 +23,7 @@ python main_price.py      # 가격정보 공공 API 기반 실제 통계 보도�
 python main_practice.py   # 반려동물용품 예시 (표본매출 원자료 → 코드가 직접 집계·계산)
 ```
 
-`pytest`가 75개 모두 통과하지 않는다면, 그 사이 파이썬/패키지 버전이 바뀌었거나 파일이 수정된 것이므로 원인부터 파악하세요.
+`pytest`가 84개 모두 통과하지 않는다면, 그 사이 파이썬/패키지 버전이 바뀌었거나 파일이 수정된 것이므로 원인부터 파악하세요.
 
 **문서 위치가 두 차례 바뀌었습니다** (2026-09-18, 10~11차 세션):
 - `Ch02-실습.md` ~ `Ch10-실습.md` → **`labs/`**로 이동, PPT 슬라이드 구조에서 손으로 따라 하는 단계별 실행 가이드로 전면 재작성. 앞으로 실습 파일은 전부 `labs/`에 둘 것
@@ -160,12 +160,26 @@ python main_practice.py   # 반려동물용품 예시 (표본매출 원자료 �
 - `README.md`·`TASKS.md`의 문서 지도, 안내 문구도 새 경로에 맞게 갱신
 - 코드가 이동한 것이 아니라 문서만 이동했으므로 `pytest tests/ -v` 재실행으로 회귀 없음 확인(75 passed)
 
+### 12차: 10차시 최종 출력에 PDF·HWPX 추가 (2026-09-19)
+- 요청: 10차시 실습의 최종 출력 파일 형식을 txt뿐 아니라 **PDF와 HWPX(한글)** 로 만들도록 추가·수정 (1차시 구조도의 "최종 문서 저장(hwpx, PDF)" 단계 구현)
+- **`modules/export.py` 신규**: `save_pdf(data)`(`reportlab`, A4, 맑은 고딕 TTF 등록, 제목·부제·본문·그래프+캡션), `save_hwpx(data)`(`python-hwpx`, 제목=개요 1 스타일·부제/본문=바탕글, 그래프 임베딩). 제목·부제는 `헤드라인`, 본문은 `최종본`, 그림은 `시각자료설명[*].이미지경로`(막대·원형처럼 한 이미지를 공유하면 한 번만, 캡션에 소주제 병기)에서 가져옴. 파일명은 `문서정보.제목`에서 Windows 금지 문자를 `_`로 치환
+- **`main.py`**: `save_final_document`(txt, 기존 그대로) 뒤에 `hwpx`, `pdf`를 **형식마다 따로 try/except**로 저장하고 `data["출력파일"]`에 경로를 담음. 실패해도 경고만 출력 — 한글 폰트가 없어 PDF가 실패해도 HWPX·txt와 유료 API로 만든 결과를 잃지 않게 하기 위함(설계 중 "둘을 한 함수로 묶으면 PDF 실패가 HWPX까지 막는" 결함을 발견해 분리)
+- 의존성 추가: `reportlab`, `python-hwpx`(Apache-2.0, 의존성 lxml만) → `requirements.txt`. `.gitignore`에 `output/*.pdf`, `output/*.hwpx`. PDF용 한글 폰트는 `malgun.ttf` 자동 탐색, 다른 환경은 `.env`의 `KOREAN_FONT_PATH`
+- 테스트: `tests/test_ch10_export.py` 신규(8건: 구성요소 수집·이미지 공유/누락, 파일명 치환, HWPX 유효성·텍스트·이미지·제목 스타일 비상속, PDF 한글 텍스트·이미지·특수문자 이스케이프, 폰트 없음 오류) + `test_ch10_pipeline.py`에 실제 `main()`의 PDF·HWPX 생성 검증과 폰트 없음 시 HWPX·txt 유지 검증. **75개 → 84개 전부 통과**
+- 실제 확인: PDF는 렌더링해서 눈으로 레이아웃 확인(제목·부제·본문·그래프·캡션), HWPX는 `python-hwpx`의 `validate()` 통과·재개봉·텍스트·이미지(`BinData/`) 확인
+- 문서 갱신: `labs/Ch10-실습.md`(산출물·API 없이 PDF·HWPX를 만드는 1-1단계 신설·확인 방법), `labs/00-실습실행순서.md`, `labs/quick/01·02`(10분 트랙 10차시 프롬프트·검증 스니펫), `pt/Ch10-PT내용.md`([수정, 12차 세션] 노트), `README.md`. 검토 중 발견한 Ch10 문서의 **API 호출 횟수 오류(5회→기본 xlsx 4회/상세 xlsx 6회, 기본 xlsx는 그래프·본문 없음)도 함께 정정**
+- **`lect/CH-10-Content.md`(학생 배포용)는 수정하지 않음** — 이전부터 미커밋 변경이 있는 폴더라 손대지 않았고, 필요하면 위 `[수정]` 내용을 `[Note]` 형태로 옮길 것
+
 ---
 
 ## 2. 앞으로 해야 할 일 (우선순위 순)
 
 ### 🔴 최우선 — 10~11차 재구성 마무리 (세션 직후 남은 일)
-- [ ] **git commit**: `labs/`·`pt/`·`docs/` 신설을 포함한 `git mv` 20여 건 + `.gitignore` 수정 + 신규 파일(`labs/REVIEW_LOG_2026-09-18.md`) + 링크 일괄 수정 + `scripts/generate_lecture_content.py` 경로 수정이 아직 커밋되지 않았습니다. 사용자 승인 후 커밋할 것
+- [x] 10~11차 변경(`labs/`·`pt/`·`docs/` 재구성 등)은 커밋 완료 (24bf74e)
+- [ ] **git commit (12차)**: PDF·HWPX 출력 추가분(`modules/export.py`, `main.py`, 테스트, 문서 갱신, `requirements.txt`, `.gitignore`)과 이전부터 미커밋 상태인 `labs/00-실습실행순서.md`, `labs/quick/`가 아직 커밋되지 않았습니다. 사용자 승인 후 커밋할 것
+- [ ] **HWPX를 한컴오피스 한글에서 직접 열어 확인**: 자동 테스트는 패키지 구조·XML 검증·재개봉·텍스트·이미지까지만 확인함. 실제 한글 프로그램에서 열림·서식(제목 스타일, 그림 크기·위치)을 사람이 확인 필요
+- [ ] 실제 API로 `python main.py`(또는 `_상세.xlsx`)를 돌려 PDF·HWPX가 실전 결과(LLM이 만든 실제 문장·그래프)로도 정상 생성되는지 확인
+- [ ] `main_price.py`·`main_practice.py`·`scripts/run_practice_stepbystep.py`는 아직 txt만 저장함 — 같은 PDF·HWPX 출력을 적용할지 결정
 - [ ] **실제 API로 `labs/` 문서의 LLM 단계를 직접 한 번씩 실행**: 이번 재검토에서는 비용 문제로 `generate_summary`/`generate_headline_set`/`generate_body_paragraphs`/`unify_style`/`review_press_release`를 직접 호출하지 않았습니다. 문서에 적힌 "예시 실행 결과"는 과거 세션 값을 재사용한 것이므로, 다음에 API 키로 한 번 쭉 실행하며 예시 결과가 여전히 그럴듯한지 확인 권장 (숫자·형식만 맞으면 문장 표현 자체는 달라져도 무방)
 - [ ] 9차시 문서에서 의도적으로 재현한 "82.0% 파생 수치 불일치" 예시가, 실제로 8차시 LLM이 매번 같은 표현("상위 세 품목이 전체의 82.0%를 차지")을 쓰지 않을 수 있음 — 실제 실행 시 이 문장이 안 나오면 검증 실패 사례를 손으로 재현하도록 문서에 안내가 필요할 수 있음
 

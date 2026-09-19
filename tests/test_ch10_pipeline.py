@@ -96,12 +96,8 @@ def test_main_pipeline_runs_end_to_end_with_mocked_llm(sample_data, tmp_path, mo
     assert os.path.exists(f"output/{data['문서정보']['제목']}.txt")
 
 
-def test_main_module_entrypoint_runs_end_to_end_with_history_sheet(sample_data, tmp_path, monkeypatch):
-    """main.py의 실제 main() 함수를 (재구현이 아니라) 직접 호출해 검증한다.
-    7차 세션에서 추가된 '이력' 시트 기반 자동 계산과 3~4차시 요약 연결이
-    main.py 배선에 실제로 반영되었는지 확인하는 회귀 테스트."""
-    monkeypatch.chdir(tmp_path)
-
+def _make_history_xlsx(tmp_path, sample_data):
+    """요약 시트(품목별지표 포함)와 이력 시트를 가진 샘플 xlsx를 만든다."""
     요약_df = pd.DataFrame({
         "연월": ["2026-01"],
         "총거래액": [sample_data["계산지표"]["총거래액"]],
@@ -118,6 +114,15 @@ def test_main_module_entrypoint_runs_end_to_end_with_history_sheet(sample_data, 
     with pd.ExcelWriter(xlsx_path) as writer:
         요약_df.to_excel(writer, sheet_name="요약", index=False)
         이력_df.to_excel(writer, sheet_name="이력", index=False)
+    return xlsx_path
+
+
+def test_main_module_entrypoint_runs_end_to_end_with_history_sheet(sample_data, tmp_path, monkeypatch):
+    """main.py의 실제 main() 함수를 (재구현이 아니라) 직접 호출해 검증한다.
+    7차 세션에서 추가된 '이력' 시트 기반 자동 계산과 3~4차시 요약 연결이
+    main.py 배선에 실제로 반영되었는지 확인하는 회귀 테스트."""
+    monkeypatch.chdir(tmp_path)
+    xlsx_path = _make_history_xlsx(tmp_path, sample_data)
 
     import main as main_module
 
@@ -127,3 +132,36 @@ def test_main_module_entrypoint_runs_end_to_end_with_history_sheet(sample_data, 
     assert "요약결과" in 결과  # 4차시 generate_summary가 실제로 호출되어 결과가 남음
     assert any(item["소주제"] == "시계열 동향" for item in 결과["시각자료설명"])  # line 차트 활성화
     assert 결과["검수결과"]["수치교차검증"]["통과"] is True
+    # 최종 출력: txt 외에 PDF·HWPX도 만들어진다 (한글 폰트가 없는 환경에서는 PDF 저장이 경고로 대체되어 건너뜀)
+    assert os.path.exists(f"output/{결과['문서정보']['제목']}.txt")
+    from modules.export import _find_korean_font
+    try:
+        _find_korean_font()
+        폰트있음 = True
+    except RuntimeError:
+        폰트있음 = False
+    # HWPX는 폰트가 필요 없으므로 항상 만들어지고, PDF는 한글 폰트가 있을 때만 만들어진다.
+    assert 결과["출력파일"]["hwpx"].endswith(".hwpx") and os.path.exists(결과["출력파일"]["hwpx"])
+    if 폰트있음:
+        assert 결과["출력파일"]["pdf"].endswith(".pdf") and os.path.exists(결과["출력파일"]["pdf"])
+    else:
+        assert "pdf" not in 결과["출력파일"]
+
+
+def test_main_still_saves_hwpx_and_txt_when_pdf_font_is_missing(sample_data, tmp_path, monkeypatch, capsys):
+    """PDF 변환이 실패해도(한글 폰트 없음) HWPX·txt와 이미 만든 결과는 남아야 한다."""
+    monkeypatch.chdir(tmp_path)
+    xlsx_path = _make_history_xlsx(tmp_path, sample_data)
+
+    import modules.export as export_module
+    def _no_font():
+        raise RuntimeError("한글 TTF 폰트를 찾을 수 없습니다 (KOREAN_FONT_PATH)")
+    monkeypatch.setattr(export_module, "_find_korean_font", _no_font)
+
+    import main as main_module
+    결과 = main_module.main(str(xlsx_path))
+
+    assert os.path.exists(f"output/{결과['문서정보']['제목']}.txt")
+    assert os.path.exists(결과["출력파일"]["hwpx"])
+    assert "pdf" not in 결과["출력파일"]
+    assert "[경고] pdf 저장 실패" in capsys.readouterr().out

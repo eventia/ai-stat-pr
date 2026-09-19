@@ -24,7 +24,7 @@ python scripts/make_sample_excel.py        # 기본 샘플 (품목별지표 없�
 python scripts/make_sample_excel_full.py   # 전체 경로 확인용 샘플 (품목별지표 포함 → 6차시 그래프까지 생성됨)
 python scripts/make_sample_pdf.py          # PDF 입력 경로 확인용 샘플
 
-# 5. 단위 테스트 실행 (API 키 불필요, 75개)
+# 5. 단위 테스트 실행 (API 키 불필요, 84개)
 pytest tests/ -v
 
 # 6. 전체 파이프라인 실행 (API 키 필요)
@@ -41,7 +41,8 @@ python scripts/run_practice_stepbystep.py          # 단계별 실행 + 결과 �
 
 | 경로 | 설명 |
 | --- | --- |
-| `modules/io.py` | 7·10차시: xlsx/PDF 입력, 최종 문서 저장 |
+| `modules/io.py` | 7·10차시: xlsx/PDF 입력, 최종 문서(txt) 저장 |
+| `modules/export.py` | 10차시: 최종 보도자료를 PDF(`reportlab`)·HWPX(`python-hwpx`)로 저장 (`main.py`가 호출) |
 | `modules/clean.py` | 2차시: 텍스트 정제·표준화·구조화, 개인정보 마스킹 |
 | `modules/nlp.py` | 3차시: 명사/키워드(TF-IDF)/주요문장(TextRank) 추출 |
 | `modules/stats.py` | 5차시: 증감률·비중·순위 계산, 특이점 탐지, 해석문 생성, 역대최대/추세 자동 계산(`derive_history_indicators`) |
@@ -75,6 +76,7 @@ xlsx/PDF (modules/io.load_input)
   → 헤드라인/본문 (modules/write, LLM 호출)
   → 최종본/검수결과 (modules/review: 문체 통일 + 자동 수치검증 + AI 감수)
   → output/*.txt (modules/io.save_final_document)
+  → output/*.pdf, output/*.hwpx (modules/export.save_pdf / save_hwpx)
 ```
 
 ## 테스트
