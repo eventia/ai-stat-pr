@@ -174,6 +174,14 @@ python main_practice.py   # 반려동물용품 예시 (표본매출 원자료 �
 
 ## 2. 앞으로 해야 할 일 (우선순위 순)
 
+### 13차: 차시별 10분 단축 실습 문서 9종 (2026-09-19)
+- 요청: 2~10차시 각각을 **이 문서만 보고 진행 가능한** 10분 실습 문서로 만들고, `CLAUDE.md` 수정·추가 내용도 포함
+- 신규: `labs/quick/Ch02-10분실습.md` ~ `Ch10-10분실습.md`, 색인 `labs/quick/README.md`. 각 문서 구성: 한눈에 보기·10분 진행표·입력 준비 스니펫·CLAUDE.md 수정(기존 규칙 3줄에 "(10분 실습에서는 `mywork/…`)" 덧붙임, `quick-practice:common`/`chNN` 마커 블록 추가, `CLAUDE.md.bak` 백업, 세션 재시작, Ch10 원복)·프롬프트·검증·관찰·폴백·문제 해결
+- 검증: 문서의 스니펫을 추출해 연속 진행/폴백/차시별 단독 모드로 실행(가짜 LLM 응답, 실제 API 호출 없음). 폴백 시 Ch05·Ch08 assert 실패는 문서에 명시된 정상 동작
+- 발견·수정: (1) `labs/Ch03-실습.md`의 TF-IDF 예시 점수 오류를 실제값으로 정정, (2) 폴백으로 복사한 `review.py`가 `modules.write`(실제 API 클라이언트)를 import하던 결함 → config 복사 + import 경로 변환(`mywork.`)을 폴백 공통 후처리로 추가(신규 문서 및 `labs/quick/02-클로드코드프롬프트.md` 사용법 5-1), (3) 휴대전화 마스킹 문구 정정
+- 미확인: 실제 Claude Code 생성·10분 소요 시간, 실제 API 호출, HWPX의 한컴오피스 열기
+
+
 ### 🔴 최우선 — 10~11차 재구성 마무리 (세션 직후 남은 일)
 - [x] 10~11차 변경(`labs/`·`pt/`·`docs/` 재구성 등)은 커밋 완료 (24bf74e)
 - [ ] **git commit (12차)**: PDF·HWPX 출력 추가분(`modules/export.py`, `main.py`, 테스트, 문서 갱신, `requirements.txt`, `.gitignore`)과 이전부터 미커밋 상태인 `labs/00-실습실행순서.md`, `labs/quick/`가 아직 커밋되지 않았습니다. 사용자 승인 후 커밋할 것
