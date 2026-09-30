@@ -1,0 +1,30 @@
+mywork/ 에 두 파일을 만들어줘.
+
+[mywork/write.py] — Claude API로 문장을 생성한다(계산은 하지 않는다).
+- 맨 위에서 from dotenv import load_dotenv; load_dotenv() 를 먼저 호출한 뒤 client = anthropic.Anthropic() 을 만든다.
+- MODEL_NAME = "claude-sonnet-5-5"
+- SYSTEM_PROMPT = 역할과 제약: "당신은 국가데이터처 보도자료 작성 담당자입니다. 제공된 계산지표와 문장만을 근거로 사용하고,
+  제공되지 않은 숫자는 절대로 만들어내지 마십시오. 객관적 사실만 서술하고 수식어를 남용하지 마십시오."
+- format_value(field, value) -> str : config.INDICATOR_UNITS의 단위를 붙인다. 정수는 천 단위 콤마. 예) 201250 → "201,250억 원", 1.5 → "1.5%"
+- call_claude(prompt, system=SYSTEM_PROMPT, max_tokens=2000) -> str
+  client.messages.create(model=MODEL_NAME, max_tokens=..., system=..., thinking={"type": "between_tools"},
+  messages=[{"role": "user", "content": prompt}]) 로 호출한다. ★ temperature는 넣지 않는다.
+  stop_reason이 "refusal"이면 RuntimeError. ★ content 중 type이 "text"인 블록의 text만 이어 붙여 strip()해서 돌려준다.
+- parse_json_response(response_text) : 응답에 코드펜스나 설명이 섞여도 정규식 r"(\{.*\}|\[.*\])"(re.DOTALL)로
+  JSON 객체 또는 배열 부분만 찾아 json.loads 한다. 못 찾으면 원문 그대로 json.loads 한다.
+- build_summary_prompt(data) -> str : 표준 데이터의 계산지표·NLP분석결과로 요약 요청 문장을 만든다.
+  · 총거래액은 format_value로 "201,250억 원"처럼 넣는다.
+  · ★ 전월대비·전년동월대비 증감률은 float로 바꾼 뒤 abs()로 부호를 떼고, 0 이상이면 "증가", 음수면 "감소"를 붙인다(예: "1.5% 증가", "2.3% 감소").
+  · 핵심키워드는 ", "로, 주요문장은 " / "로 이어 붙여 넣는다.
+  · "숫자는 적힌 표기(콤마·단위 포함) 그대로 쓰고, 새로 계산하거나 단위를 바꾸지 말 것"을 명시한다.
+  · Few-shot 예시 1개(입력: 총거래액 1,500억 원, 전월대비 2.1% 감소 → 출력 JSON 예시)를 넣는다.
+  · 마지막에 "결과는 반드시 아래 JSON 형식으로만 출력"하라고 하고 {"삼줄요약": ["문장1","문장2","문장3"], "제목후보": ["제목1","제목2","제목3"]} 형식을 보여 준다.
+- generate_summary(data) -> dict : build_summary_prompt → call_claude → parse_json_response 결과를 돌려준다.
+
+[mywork/review.py] — 생성된 문장 속 숫자를 원본과 대조한다.
+- _collect_valid_numbers(data) -> set : 계산지표의 값과 품목별지표(dict 목록)의 모든 값 중 숫자(bool 제외)를 str로 모은다.
+  ★ 음수는 문장에서 "2.1% 감소"처럼 부호 없이 쓰이므로 str(abs(값))도 함께 넣는다.
+- _is_low_risk_number(token) -> bool : 소수점이 있으면 False. 1900~2100 사이의 4자리 연도, 그리고 1~2자리 정수는 True(대조 제외).
+- find_unverified_numbers(text, data) -> list : 정규식 r"\d[\d,]*\.?\d*"로 숫자를 찾아, 콤마와 끝의 마침표를 떼고,
+  대조 제외가 아닌데 원본에 없는 숫자의 원래 표기를 목록으로 돌려준다.
+- verify_numbers(summary_text, source_data) -> bool : 위 목록이 비어 있으면 True.
