@@ -35,6 +35,7 @@ def write_text(path: str, text: str, encoding: str = "utf-8") -> None:
 
 
 def short_title(heading: str) -> str:
+    heading = re.sub(r"^\([^)]*\)\s*", "", heading)          # "(선택) …"처럼 앞에 붙은 괄호는 뗀다
     title = re.split(r"\s[—-]\s|\(", heading)[0]
     for key, name in [("수정 요청", "수정요청예시"), ("기대 결과", "기대결과"), ("단독", "단독시작")]:
         if key in heading:
@@ -101,7 +102,9 @@ def export(n: int):
         if lang == "text" and code.startswith("C:\\dev\\quick-practice\\"):
             title = "최종폴더구조"
         base = f"{num}_{title}" if title else num
-        if lang == "powershell" and code.strip() == "claude":
+        if code.startswith("# 단독 시작"):
+            base = f"{num}_단독시작(앞차시건너뛸때만)"
+        elif lang == "powershell" and code.strip() == "claude":
             base = f"{num}_ClaudeCode시작"
         elif lang == "text" and "프롬프트" in title:
             base = f"{num}_프롬프트"

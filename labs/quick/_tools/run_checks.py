@@ -139,6 +139,8 @@ def main():
             print(f"[{'PASS' if ok else 'FAIL'}] ch{n:02d} {name}")
             if not ok:
                 print(so[-1500:], se[-3000:])
+        if args.make_snapshots and not args.standalone and n == 10:   # 10차시는 최종 CLAUDE.md만 남긴다
+            shutil.copy(os.path.join(work, "CLAUDE.md"), os.path.join(SOL, "snapshots", "CLAUDE_after_ch10.md"))
         if args.make_snapshots and not args.standalone and n <= 9:
             inject_sample(n, work)
             snap = os.path.join(SOL, "snapshots")
