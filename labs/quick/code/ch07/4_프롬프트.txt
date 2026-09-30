@@ -1,0 +1,29 @@
+다음 두 가지를 해줘.
+
+[1] mywork/data_io.py 를 새로 만든다. (pandas, pdfplumber 사용)
+load_input(파일경로: str) -> dict : 확장자에 따라 xlsx 또는 PDF 원자료를 읽어 raw dict로 돌려준다(정제는 하지 않는다).
+- ".xlsx": ★ with pd.ExcelFile(파일경로) as 엑셀: 로 열어(다 읽으면 파일이 닫히도록) 첫 번째 시트를 연월·공표일자 열은 문자열(dtype=str)로 읽고 첫 행을 쓴다.
+  · raw = {"제목": "{연도}년 {월(앞의 0 제거)}월 온라인쇼핑 동향", "기준연월": 연월("YYYY-MM"),
+           "계산지표": {config.REQUIRED_FIELDS 각 항목: 값}, "원문": 원문}
+  · 공표일자·자료출처·보안등급 열이 있으면 문자열로 넣는다.
+  · 핵심내용·품목별지표 열이 "[" 또는 "{"로 시작하는 JSON 문자열이면 json.loads 해서 넣는다.
+  · ★ 엑셀에서 읽은 숫자는 numpy 타입이므로 .item() 등으로 파이썬 기본 타입(int/float/str)으로 바꾼다.
+  · "이력" 시트(연월, 총거래액)가 있으면 history = [{"연월", "값"}] 목록을 만들고,
+    raw["월별이력"] = history + [이번 달 {"연월", "값": 총거래액}],
+    mywork.stats.derive_history_indicators(history, 연월, 총거래액) 결과의 역대최대여부·최근3개월증감률을 raw.setdefault로 넣는다.
+- ".pdf": 모든 페이지의 extract_text()(None이면 "")를 줄바꿈으로 이어 {"원문": 전체텍스트}만 돌려준다.
+- 그 밖의 확장자는 ValueError("지원하지 않는 파일 형식입니다: ...").
+
+[2] mywork/write.py 에 함수 3개를 추가한다(기존 함수는 고치지 말 것). config에서 ISSUER, REQUIRED_FIELDS를 추가로 import 한다.
+select_core_indicators(계산지표: dict) -> dict : REQUIRED_FIELDS에 있는 항목만 남긴다.
+build_headline_prompt(core: dict, special_points: list, doc_info: dict) -> str
+- 1) 제목(15자 내외, 핵심 수치 또는 증감 방향 포함, 과장된 수식어 금지)
+  2) 부제(제목과 중복되지 않는 두 번째 정보, 25자 내외)
+  3) 리드문(6하원칙에 따라 3~4문장. ★ 아래에 없는 요소(어디서·왜 등)는 지어내지 말고 건너뛸 것)
+- 누가: ISSUER / 언제: doc_info["기준연월"]을 "2026년 1월" 형식으로 / 무엇을: doc_info의 지표명
+  / 어떻게(핵심지표): 각 항목을 format_value로 "총거래액 201,250억 원, 전월대비증감률 1.5%, ..." 처럼 / 특이사항: special_points를 ", "로(없으면 "없음")
+- "숫자는 적힌 표기(콤마·단위 포함) 그대로 쓰고, 새로 계산하거나 단위를 바꾸지 말 것"을 명시하고,
+  마지막에 {"제목": "...", "부제": "...", "리드문": "..."} JSON 형식으로만 출력하라고 한다.
+generate_headline_set(data: dict) -> dict
+- core = select_core_indicators(data["계산지표"]), 특이점 = data["통계해석결과"]["특이점목록"], doc_info = data["문서정보"]
+- build_headline_prompt → call_claude → parse_json_response 결과를 돌려준다.
