@@ -1,0 +1,39 @@
+다음 두 가지를 해줘. 기존 함수는 고치지 말 것. mywork/export.py는 제공 파일이므로 수정하지 말 것.
+
+[1] mywork/clean.py 에 함수 2개 추가
+check_data_grade(data: dict) -> None
+- data["문서정보"]의 "보안등급"(없으면 "미확인")이 "공개"가 아니면
+  PermissionError("보안등급이 '…'인 자료는 외부 AI API로 보낼 수 없습니다. (공개 자료만 허용)")를 낸다.
+mask_personal_info(data: dict) -> dict
+- data["원문"]에 mask_sensitive_info를 적용하고 data를 돌려준다.
+
+[2] mywork/main.py 새로 만들기
+- ★ mywork 모듈의 함수는 "from mywork.xxx import 함수" 형태로 가져온다:
+  charts.build_visual_descriptions / clean.check_data_grade, clean_and_structure, mask_personal_info / data_io.load_input /
+  nlp.analyze_document / review.check_formatting_errors, cross_check_all_numbers, review_press_release /
+  stats.add_calculated_indicators / write.assemble_full_text, generate_body_paragraphs, generate_headline_set, generate_summary, unify_style
+- logs 폴더를 만들고 logging.basicConfig(filename="logs/pipeline.log", level=logging.INFO, ★ encoding="utf-8", format="%(asctime)s %(levelname)s %(message)s")
+
+save_final_document(data: dict) -> str
+- output 폴더를 만들고, 제목의 Windows 금지 문자(\ / : * ? " < > |)를 "_"로 바꾼 파일명으로
+  "output/{제목}_{문서상태(없으면 검토필요)}.txt" 에 헤드라인 제목, 부제, 빈 줄, 최종본을 UTF-8로 저장하고 경로를 돌려준다.
+
+main(파일경로: str, pdf경로: str = None) -> dict  — 전체를 try로 감싸 시작·완료·오류를 로그에 남기고, 오류는 다시 raise.
+ 1. raw = load_input(파일경로). pdf경로가 있으면 raw["원문"]을 load_input(pdf경로)["원문"]으로 바꾼다.
+ 2. data = clean_and_structure(raw) → ★ check_data_grade(data) → data = mask_personal_info(data)  (외부 AI 호출 전에 반드시)
+ 3. analyze_document(data["원문"], data) → add_calculated_indicators(data)
+    → ★ 품목별지표 또는 월별이력이 있으면(or) data["시각자료설명"] = build_visual_descriptions(data)
+ 4. data["요약결과"] = generate_summary(data)  (참고용으로 저장만), data["헤드라인"] = generate_headline_set(data),
+    data["본문"] = generate_body_paragraphs(data)
+ 5. data["최종본"] = unify_style(assemble_full_text(data))
+    검수 대상 = 헤드라인 제목 + 부제 + 최종본을 공백으로 이은 문자열
+    data["검수결과"] = {"표기오류검사": check_formatting_errors(검수 대상), "수치교차검증": cross_check_all_numbers(검수 대상, data),
+                     "AI감수지적사항": review_press_release(data["최종본"], data)}
+ 6. 수치교차검증 통과이고 표기오류검사가 비어 있으면 data["문서상태"] = "승인대기", 아니면 "검토필요"
+    data["출력파일"] = {"txt": save_final_document(data)}
+    mywork.export의 save_hwpx, save_pdf를 import 해서(ImportError면 로그만 남기고 txt만) ★ 형식마다 따로 try로 저장하고,
+    성공하면 data["출력파일"]["hwpx"/"pdf"]에 경로를 넣는다(실패는 logging.warning).
+    마지막에 data를 mywork/press_data.json에 저장하고 돌려준다.
+
+if __name__ == "__main__": 인자가 있으면 첫 인자를 파일경로, 둘째를 pdf경로로 쓰고 없으면 "data/온라인쇼핑동향_2026_01.xlsx".
+ "=== 최종 보도자료 ===", 제목, 부제, 최종본, "수치 교차 검증 통과 여부:", "표기 오류 검사:", "문서상태:", "저장된 파일:"을 출력한다.

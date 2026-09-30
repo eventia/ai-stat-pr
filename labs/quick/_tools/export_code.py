@@ -85,6 +85,10 @@ def describe(name: str, lang: str, code: str) -> str:
         if first.startswith("# 선택"):
             return "check.py에 붙여넣고 python check.py (실제 API 호출, 비용 발생)"
         return "check.py에 붙여넣고 python check.py"
+    if lang == "powershell" and re.search(r"(?m)^python -m mywork\.main", code):
+        return "PowerShell에 붙여넣기 (실제 API 호출, 비용 발생)"
+    if lang == "powershell" and "Invoke-Item" in code and name.startswith("7_"):
+        return "PowerShell에 붙여넣기 (8절 실제 실행 뒤)"
     if lang == "powershell":
         return "PowerShell에 붙여넣기"
     return ""
