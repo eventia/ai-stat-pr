@@ -104,6 +104,8 @@ def export(n: int):
         base = f"{num}_{title}" if title else num
         if code.startswith("# 단독 시작"):
             base = f"{num}_단독시작(앞차시건너뛸때만)"
+        elif lang == "powershell" and title == "기대결과":
+            base = f"{num}_결과열어보기"
         elif lang == "powershell" and code.strip() == "claude":
             base = f"{num}_ClaudeCode시작"
         elif lang == "text" and "프롬프트" in title:
