@@ -1,0 +1,14 @@
+# 2~10차시 10분 실습 전체에서 쓰는 패키지
+anthropic
+python-dotenv
+pandas
+openpyxl
+pdfplumber
+requests
+scikit-learn
+kiwipiepy
+networkx
+matplotlib
+reportlab
+python-hwpx
+pytest

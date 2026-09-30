@@ -66,6 +66,17 @@ python scripts/run_practice_stepbystep.py          # 단계별 실행 + 결과 �
 | `scripts/make_sample_pdf.py` | PDF 입력 경로 확인용 샘플 PDF 생성 |
 | `scripts/fetch_public_api_sample.py` | 2차시: 공공 API 연동 최소 데모 (`modules/public_api.py` 사용) |
 
+## 문서 구조
+
+| 경로 | 설명 |
+| --- | --- |
+| `lect/` | 학생 배포용 강의안(md·pptx) |
+| `pt/` | 강의 원본과 수정 이력 |
+| `labs/ChNN-실습.md` | 표준 실습 — 완성된 `modules/`를 단계별로 실행하며 따라 하기 |
+| `labs/강의자료/` | 강의 PPT 최종본(CH02~CH10-ContentV10.pptx, 검토 의견 반영 완료) |
+| **`labs/quick/`** | **10분 단축 실습** — 새 폴더에서 Claude Code로 직접 만들며 진행. 시작점은 [labs/quick/README.md](labs/quick/README.md), 진행 현황은 [labs/quick/00-진행현황.md](labs/quick/00-진행현황.md) |
+| `docs/` | 구현 경위·검토 보고서·참고자료 |
+
 ## 데이터 흐름
 
 ```
