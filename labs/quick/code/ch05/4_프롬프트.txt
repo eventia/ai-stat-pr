@@ -1,0 +1,49 @@
+mywork/stats.py 를 만들어줘. 모든 계산은 이 파일의 파이썬 함수가 한다(AI 사용 안 함, pandas 사용).
+
+calc_category_indicators(rows: list) -> list
+- rows는 [{"품목", "당월거래액", "전월거래액"}, ...]. pandas DataFrame으로 계산한다.
+- 전월대비증감률 = (당월-전월)/전월*100, 비중 = 당월/당월합계*100 (둘 다 소수점 1자리 반올림),
+  순위 = 당월거래액 내림차순 rank(method="min").
+- 순위 순으로 정렬해 {"품목","당월거래액","전월거래액","전월대비증감률","비중","순위"} dict 목록으로 돌려준다.
+  ★ 값은 파이썬 int/float로 바꾼다(numpy 타입 금지).
+
+detect_special_points(momRate, yoyRate, is_record_high, recent_momRates=None) -> list
+- is_record_high면 "역대 최대치 경신"
+- abs(momRate) >= 5 이면 "전월 대비 큰 폭 증가"(양수) 또는 "전월 대비 큰 폭 감소"(음수)
+- abs(yoyRate) >= 5 이면 "전년동월 대비 큰 폭 증가"/"전년동월 대비 큰 폭 감소"
+- recent_momRates의 마지막 3개가 모두 양수면 "최근 3개월 연속 증가세", 모두 음수면 "최근 3개월 연속 감소세"
+- 위 순서대로 목록에 넣는다.
+
+generate_interpretation(indicator_name, value, unit, point_type) -> str
+- 값이 정수면 천 단위 콤마. 템플릿 7개(없는 유형은 ""):
+  "역대 최대치 경신": "{지표명}은 {값}{단위}으로 동월 기준 역대 최대치를 기록하였다."
+  "전월 대비 큰 폭 증가": "{지표명}이 전월 대비 {값}% 증가하며 큰 폭의 상승세를 보였다."
+  "전월 대비 큰 폭 감소": "{지표명}이 전월 대비 {값}% 감소하며 큰 폭의 하락세를 보였다."
+  "전년동월 대비 큰 폭 증가"/"전년동월 대비 큰 폭 감소": 위 두 문장에서 "전월"을 "전년동월"로
+  "최근 3개월 연속 증가세": "{지표명}은 최근 3개월 연속 증가세를 이어가고 있다." (감소세도 같은 형식)
+
+build_interpretation_sentences(특이점: list, 계산지표: dict, 지표명: str = "거래액") -> list
+- 특이점마다 알맞은 값으로 generate_interpretation을 부른다. 역대 최대는 총거래액과 "억 원",
+  증감 유형은 해당 증감률과 "%", 연속 추세는 값 0과 "".
+- ★ 감소 유형은 abs()로 부호를 뗀 값을 넣는다("-6.2% 감소" 같은 이중 부정 금지).
+
+_shift_month(ym: str, delta_months: int) -> str : "YYYY-MM"을 delta_months만큼 이동(음수면 과거).
+
+derive_history_indicators(history: list, current_ym: str, current_value) -> dict
+- history는 과거 [{"연월": "YYYY-MM", "값": 숫자}, ...](이번 달 제외).
+- history가 비었으면 {"역대최대여부": None, "최근3개월증감률": [], "전월대비증감률": None, "전년동월대비증감률": None}.
+- ★ 역대최대여부: 이번 달과 같은 '월'의 과거 값들과만 비교해 current_value >= 최댓값. 같은 달 과거 값이 없으면 None.
+- 최근3개월증감률: history를 연월순으로 정렬하고 이번 달을 뒤에 붙인 뒤, 마지막 3구간의 증감률(%, 소수점 1자리).
+- 전월대비·전년동월대비증감률: _shift_month로 1개월 전·12개월 전 연월을 찾아 계산(소수점 1자리). 값이 없으면 None.
+
+add_calculated_indicators(data: dict) -> dict
+- 품목별지표가 있고 첫 항목에 "전월거래액"이 있으면 calc_category_indicators 결과로 바꾼다.
+- 월별이력과 문서정보["기준연월"]이 있으면, 기준연월보다 이전 이력만 history로 derive_history_indicators를 부르고
+  (현재 값은 계산지표["총거래액"]) 결과의 역대최대여부·최근3개월증감률을 data.setdefault로 넣는다(이미 있으면 그대로).
+- detect_special_points(계산지표의 두 증감률, data의 역대최대여부가 True인지, data의 최근3개월증감률)
+- 지표명 = data["문서정보"].get("지표명", "거래액")
+- data["통계해석결과"] = {"특이점목록": ..., "해석문장": build_interpretation_sentences(...)} 를 넣고 data를 돌려준다.
+- 계산지표는 바꾸지 않는다.
+
+check_percent_unit(text: str, is_rate_of_rate: bool) -> bool
+- 비중 변화(is_rate_of_rate=True)인데 "%p"가 없거나, 단순 증감률인데 "%p"가 있으면 False, 아니면 True.
